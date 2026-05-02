@@ -17,6 +17,7 @@ import pyarrow.parquet as pq
 import pyarrow.types as patypes
 
 from ..config import eprint
+from ..duckdb_engine import DuckDBUnavailableError, connect, read_parquet_sql
 from ..income_export import (
     _concat_non_empty,
     _export_tables,
@@ -41,6 +42,7 @@ class ExportOptions:
     split_by: str
     gzip: bool
     prefix: str
+    engine: str
 
     @property
     def out_dir_str(self) -> str:
@@ -129,6 +131,7 @@ def _options_from_args(args: argparse.Namespace) -> ExportOptions:
         split_by=split_by,
         gzip=gzip_enabled,
         prefix=getattr(args, "prefix", "income"),
+        engine=getattr(args, "engine", "pandas") or "pandas",
     )
 
 
@@ -273,6 +276,8 @@ def _write_dataset(
     base_name: str,
     progress: Optional[ProgressManager] = None,
 ) -> bool:
+    if opts.engine == "duckdb":
+        return _write_dataset_duckdb(source, opts, base_name, progress)
     try:
         dataset = _build_dataset(source)
     except (FileNotFoundError, ValueError, pa.ArrowInvalid, pa.ArrowTypeError):
@@ -317,6 +322,43 @@ def _write_dataset(
         if writer is not None:
             writer.close()
 
+    _log_progress(progress, f"已保存：{out_path}")
+    return True
+
+
+def _write_dataset_duckdb(
+    source: Path,
+    opts: ExportOptions,
+    base_name: str,
+    progress: Optional[ProgressManager] = None,
+) -> bool:
+    try:
+        conn = connect()
+    except DuckDBUnavailableError as exc:
+        eprint(f"错误：{exc}")
+        raise SystemExit(2) from exc
+    try:
+        relation = read_parquet_sql(source)
+        table = conn.execute(f"SELECT * FROM {relation}").fetch_arrow_table()
+    except FileNotFoundError:
+        return False
+    finally:
+        conn.close()
+    if table.num_rows == 0:
+        return False
+    table = _cast_table(table)
+    out_path = _build_output_path(
+        opts.flat_target_dir, base_name, opts.out_format, opts.gzip
+    )
+    if opts.out_format == "csv":
+        sink = _open_csv_sink(out_path, opts.gzip)
+        try:
+            pcsv.write_csv(table, sink, write_options=pcsv.WriteOptions())
+        finally:
+            sink.close()
+    else:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        pq.write_table(table, out_path.as_posix())
     _log_progress(progress, f"已保存：{out_path}")
     return True
 

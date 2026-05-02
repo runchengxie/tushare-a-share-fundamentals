@@ -211,6 +211,7 @@ class MarketDatasetDownloader:
         max_retries: int = 3,
         flush_threshold_rows: int = FRAME_FLUSH_THRESHOLD_ROWS,
         progress_mode: str = "auto",
+        storage_mode: str = "compact",
     ) -> None:
         self.pro = pro
         self.vip_pro = vip_pro
@@ -226,6 +227,7 @@ class MarketDatasetDownloader:
         self.allow_future = allow_future
         self.retry_policy = RetryPolicy(max_retries=max_retries)
         self.flush_threshold_rows = max(int(flush_threshold_rows), 0)
+        self.storage_mode = storage_mode
         self._field_cache: Dict[Tuple[str, str], Set[str]] = {}
         self._field_missing_logged: Set[Tuple[str, str]] = set()
         self._field_extra_logged: Set[Tuple[str, str]] = set()
@@ -355,12 +357,17 @@ class MarketDatasetDownloader:
         )
         if combined is None:
             return True
+        write_kwargs: Dict[str, Any] = {
+            "group_keys": spec.dedup_group_keys or spec.primary_keys,
+        }
+        if self.storage_mode != "compact":
+            write_kwargs["mode"] = self.storage_mode
         return write_parquet_dataset(
             combined,
             self.data_dir,
             spec.name,
             spec.default_year_column,
-            group_keys=spec.dedup_group_keys or spec.primary_keys,
+            **write_kwargs,
         )
 
     # Backwards-compatible wrappers kept for tests and external callers. These
@@ -767,12 +774,17 @@ class MarketDatasetDownloader:
         write_ok = True
         if combined is not None:
             year_col = spec.default_year_column
+            write_kwargs = {
+                "group_keys": spec.dedup_group_keys or spec.primary_keys,
+            }
+            if self.storage_mode != "compact":
+                write_kwargs["mode"] = self.storage_mode
             write_ok = write_parquet_dataset(
                 combined,
                 self.data_dir,
                 spec.name,
                 year_col,
-                group_keys=spec.dedup_group_keys or spec.primary_keys,
+                **write_kwargs,
             )
         failure_entries = [entry for entry in window_records.values() if len(entry) > 1]
         write_failure_report(self.data_dir, spec.name, "windows", failure_entries)

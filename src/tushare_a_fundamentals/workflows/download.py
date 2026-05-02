@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import uuid
 from argparse import Namespace
 from dataclasses import dataclass
 from typing import Callable, Optional, Sequence
@@ -11,6 +14,7 @@ from ..commands.export import cmd_export
 from ..config import eprint
 from ..downloader import DatasetRequest, MarketDatasetDownloader, parse_yyyymmdd
 from ..periods import _periods_from_cfg
+from ..state_backend import open_state_backend, resolve_state_backend
 from ..tushare_client import ensure_enough_credits, init_pro_api
 
 
@@ -62,6 +66,7 @@ def _build_export_args(cfg: dict) -> Namespace | None:
         no_income=bool(cfg.get("export_no_income", False)),
         no_flat=bool(cfg.get("export_no_flat", False)),
         progress=cfg.get("progress", "auto"),
+        engine=cfg.get("export_engine", "pandas"),
     )
 
 
@@ -76,6 +81,52 @@ def run_export(export_args: Namespace, strict: bool | None) -> None:
         eprint(f"警告：导出失败（已保留 parquet）：{exc}")
         if strict:
             raise DownloadExecutionError(str(exc)) from exc
+
+
+def _run_downloader_and_export(
+    *,
+    cfg: dict,
+    dataset_requests: Sequence[DatasetRequest],
+    data_dir: str,
+    ctx: object,
+    use_vip: bool,
+    max_per_minute: int,
+    state_backend: object,
+    run_id: str,
+    downloader_cls: type[MarketDatasetDownloader],
+    start_raw: str | None,
+    end_raw: str | None,
+    exporter: Callable[[Namespace, Optional[bool]], None],
+) -> None:
+    try:
+        downloader = downloader_cls(
+            ctx.any_client,
+            data_dir,
+            vip_pro=ctx.vip_client,
+            use_vip=use_vip,
+            max_per_minute=max_per_minute,
+            state_path=cfg.get("state_path"),
+            state_backend=state_backend,
+            allow_future=bool(cfg.get("allow_future")),
+            max_retries=int(cfg.get("max_retries", 3)),
+            progress_mode=cfg.get("progress", "auto"),
+            storage_mode=cfg.get("storage_mode", "compact"),
+        )
+
+        downloader.run(
+            list(dataset_requests),
+            start=parse_yyyymmdd(start_raw),
+            end=parse_yyyymmdd(end_raw),
+            refresh_periods=int(cfg.get("recent_quarters") or 0),
+        )
+        export_args = _build_export_args(cfg)
+        if export_args is not None:
+            exporter(export_args, cfg.get("export_strict"))
+    except Exception as exc:
+        state_backend.record_run_finish(run_id, status="failed", error=str(exc))
+        raise
+    else:
+        state_backend.record_run_finish(run_id, status="success")
 
 
 def run_download_pipeline(
@@ -110,6 +161,17 @@ def run_download_pipeline(
             )
         ensure_fn(ctx.vip_or_default())
     data_dir = cfg.get("data_dir") or "data"
+    resolved_state = resolve_state_backend(
+        backend=cfg.get("state_backend", "auto"),
+        state_path=cfg.get("state_path"),
+        data_dir=data_dir,
+    )
+    state_backend = open_state_backend(resolved_state)
+    run_id = uuid.uuid4().hex
+    config_hash = hashlib.sha256(
+        json.dumps(cfg, sort_keys=True, default=str, ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    state_backend.record_run_start(run_id, config_hash=config_hash)
     max_per_minute = cfg.get("max_per_minute")
     if max_per_minute is None:
         max_per_minute = 90
@@ -124,27 +186,20 @@ def run_download_pipeline(
                 end_raw = periods_window[-1]
 
     downloader_type = downloader_cls or MarketDatasetDownloader
-    downloader = downloader_type(
-        ctx.any_client,
-        data_dir,
-        vip_pro=ctx.vip_client,
+    _run_downloader_and_export(
+        cfg=cfg,
+        dataset_requests=dataset_requests,
+        data_dir=data_dir,
+        ctx=ctx,
         use_vip=use_vip,
         max_per_minute=max_per_minute,
-        state_path=cfg.get("state_path"),
-        allow_future=bool(cfg.get("allow_future")),
-        max_retries=int(cfg.get("max_retries", 3)),
-        progress_mode=cfg.get("progress", "auto"),
+        state_backend=state_backend,
+        run_id=run_id,
+        downloader_cls=downloader_type,
+        start_raw=start_raw,
+        end_raw=end_raw,
+        exporter=exporter,
     )
-
-    downloader.run(
-        list(dataset_requests),
-        start=parse_yyyymmdd(start_raw),
-        end=parse_yyyymmdd(end_raw),
-        refresh_periods=int(cfg.get("recent_quarters") or 0),
-    )
-    export_args = _build_export_args(cfg)
-    if export_args is not None:
-        exporter(export_args, cfg.get("export_strict"))
 
 
 __all__ = [

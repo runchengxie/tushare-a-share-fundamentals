@@ -24,6 +24,13 @@ direnv allow
 funda download
 ```
 
+根目录 `config.yml` 或 `config.yaml` 会被自动读取。场景模板位于 `configs/`，例如：
+
+```bash
+cp configs/minimal.yaml config.yml
+funda download --config configs/no_vip.yaml
+```
+
 按日期范围下载：
 
 ```bash
@@ -122,6 +129,7 @@ funda export --progress plain
 funda coverage --dataset-root data
 funda coverage --dataset-root data --by period
 funda coverage --dataset-root data --csv data/coverage_gaps.csv
+funda coverage --dataset-root data --engine duckdb
 ```
 
 当前 `coverage` 命令读取以下旧版 `income` 派生目录：
@@ -132,6 +140,29 @@ dataset=fact_income_cum/
 ```
 
 新版 `funda download` 生成的 `income/` 分区不会被 `coverage` 扫描。只有在目录中已经存在上述派生数据时，`coverage` 才能输出有效结果。
+
+## 查询和 compact
+
+主数据保持为 Parquet。安装可选 DuckDB 后，可以直接查询本地数据集：
+
+```bash
+funda query "select ts_code, end_date from income limit 10" --dataset-root data
+funda export --dataset-root data --engine duckdb
+```
+
+默认写入模式是 `compact`，每个年度分区生成 `data.parquet`。如果启用 append 写入：
+
+```bash
+funda download --storage-mode append
+```
+
+后续可合并并去重：
+
+```bash
+funda compact --dataset-root data --datasets income --years 2024
+```
+
+每个年度分区会维护 `_manifest.json`，记录文件清单、行数、去重键、schema hash 和更新时间。
 
 ## 旧版目录
 

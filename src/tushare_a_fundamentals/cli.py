@@ -100,6 +100,12 @@ def parse_cli() -> argparse.Namespace:
         default="auto",
         help="进度展示模式：auto/rich/plain/none（默认 auto）",
     )
+    sp_exp.add_argument(
+        "--engine",
+        choices=["pandas", "duckdb"],
+        default="pandas",
+        help="读取引擎：pandas/duckdb（默认 pandas）",
+    )
 
     sp_cov = sub.add_parser("coverage", help="盘点已覆盖的股票×期末日")
     sp_cov.add_argument(
@@ -107,12 +113,47 @@ def parse_cli() -> argparse.Namespace:
     )
     sp_cov.add_argument("--years", type=int, default=10, help="近几年（默认 10）")
     sp_cov.add_argument(
+        "--engine",
+        choices=["pandas", "duckdb"],
+        default="pandas",
+        help="读取引擎：pandas/duckdb（默认 pandas）",
+    )
+    sp_cov.add_argument(
         "--by",
         choices=["ticker", "ts_code", "period"],
         default="ticker",
         help="输出维度：ticker/ts_code 或 period",
     )
     sp_cov.add_argument("--csv", type=str, help="缺口清单另存为 CSV")
+
+    sp_query = sub.add_parser("query", help="使用 DuckDB 查询本地 parquet 数据集")
+    sp_query.add_argument("sql", help="SQL 查询语句")
+    sp_query.add_argument(
+        "--dataset-root", type=str, default="data", help="数据集根目录（默认 data）"
+    )
+    sp_query.add_argument("--out", type=str, help="查询结果输出路径")
+    sp_query.add_argument(
+        "--out-format",
+        choices=["csv", "parquet"],
+        default="csv",
+        help="输出格式（默认 csv）",
+    )
+    sp_query.add_argument(
+        "--year",
+        type=str,
+        help="只注册指定年度分区，多个年份用逗号分隔",
+    )
+
+    sp_compact = sub.add_parser("compact", help="合并并去重本地 parquet 分区")
+    sp_compact.add_argument(
+        "--dataset-root", type=str, default="data", help="数据集根目录（默认 data）"
+    )
+    sp_compact.add_argument(
+        "--datasets",
+        nargs="+",
+        help="要 compact 的数据集；默认扫描 dataset-root 下所有数据集",
+    )
+    sp_compact.add_argument("--years", type=str, help="逗号分隔年份，例如 2023,2024")
 
     sp_state = sub.add_parser("state", help="查看与维护增量状态信息")
     sp_state.add_argument(
@@ -125,6 +166,12 @@ def parse_cli() -> argparse.Namespace:
         choices=["auto", "json", "sqlite"],
         default="auto",
         help="状态后端：auto/json/sqlite（默认 auto）",
+    )
+    sp_state.add_argument(
+        "--state-backend",
+        dest="backend",
+        choices=["auto", "json", "sqlite"],
+        help="状态后端别名：auto/json/sqlite",
     )
     sp_state.add_argument("--state-path", help="状态文件或数据库路径")
     sp_state.add_argument(
@@ -224,6 +271,18 @@ def parse_cli() -> argparse.Namespace:
         type=str,
         help="覆盖默认增量状态文件位置",
     )
+    sp_dl.add_argument(
+        "--state-backend",
+        dest="state_backend",
+        choices=["auto", "json", "sqlite"],
+        help="增量状态后端：auto/json/sqlite（默认 auto）",
+    )
+    sp_dl.add_argument(
+        "--storage-mode",
+        dest="storage_mode",
+        choices=["compact", "append"],
+        help="写入模式：compact 或 append（默认 compact）",
+    )
     sp_dl.set_defaults(use_vip=None)
     sp_dl.add_argument(
         "--allow-future",
@@ -268,6 +327,12 @@ def parse_cli() -> argparse.Namespace:
         help="年度导出策略（默认 cumulative）",
     )
     sp_dl.add_argument(
+        "--export-engine",
+        dest="export_engine",
+        choices=["pandas", "duckdb"],
+        help="下载后导出读取引擎：pandas/duckdb（默认 pandas）",
+    )
+    sp_dl.add_argument(
         "--export-years",
         dest="export_years",
         type=int,
@@ -300,6 +365,14 @@ def main() -> None:
         from .commands.coverage import cmd_coverage
 
         return cmd_coverage(args)
+    if cmd == "query":
+        from .commands.query import cmd_query
+
+        return cmd_query(args)
+    if cmd == "compact":
+        from .commands.compact import cmd_compact
+
+        return cmd_compact(args)
     if cmd == "state":
         from .commands.state import cmd_state
 

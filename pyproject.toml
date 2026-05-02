@@ -16,6 +16,9 @@ dependencies = [
   "rich>=13.7.0",
 ]
 
+[project.optional-dependencies]
+duckdb = ["duckdb>=0.10.0"]
+
 [project.scripts]
 funda = "tushare_a_fundamentals.cli:main"
 

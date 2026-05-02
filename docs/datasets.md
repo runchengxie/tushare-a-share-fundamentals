@@ -1,6 +1,8 @@
 # 数据集说明
 
-默认输出目录为 `data/<dataset>/year=YYYY/data.parquet`。下载状态默认写入 `data/_state/state.json`，失败清单写入 `data/_state/failures/`。
+默认输出目录为 `data/<dataset>/year=YYYY/data.parquet`。主数据始终是 Parquet；SQLite 只用于状态和元数据。下载状态默认写入 `data/_state/state.db`，失败清单写入 `data/_state/failures/`。
+
+每个年度分区会写入 `_manifest.json`，记录 Parquet 文件清单、行数、去重键、schema hash 和更新时间。启用 `storage_mode: append` 时，下载会写入 `part-*.parquet`；可用 `funda compact` 合并去重并恢复紧凑的 `data.parquet` 输出。
 
 表中的“主键”来自 `DatasetSpec.primary_keys`，“去重键”来自 `DatasetSpec.dedup_group_keys`。写入 parquet 时优先按去重键保留最新记录。
 

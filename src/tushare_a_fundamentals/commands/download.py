@@ -71,12 +71,15 @@ def _download_defaults() -> dict:
         "data_dir": "data",
         "use_vip": True,
         "max_per_minute": 90,
+        "state_backend": "auto",
         "state_path": None,
+        "storage_mode": "compact",
         "export_enabled": False,
         "export_out_dir": None,
         "export_out_format": "csv",
         "export_kinds": "",
         "export_annual_strategy": "cumulative",
+        "export_engine": "pandas",
         "export_years": None,
         "export_strict": False,
         "max_retries": 3,
@@ -104,11 +107,14 @@ def _collect_cli_overrides(args: argparse.Namespace) -> dict:
         "data_dir": getattr(args, "data_dir", None),
         "use_vip": getattr(args, "use_vip", None),
         "max_per_minute": getattr(args, "max_per_minute", None),
+        "state_backend": getattr(args, "state_backend", None),
         "state_path": getattr(args, "state_path", None),
+        "storage_mode": getattr(args, "storage_mode", None),
         "export_out_dir": getattr(args, "export_out_dir", None),
         "export_out_format": getattr(args, "export_out_format", None),
         "export_kinds": getattr(args, "export_kinds", None),
         "export_annual_strategy": getattr(args, "export_annual_strategy", None),
+        "export_engine": getattr(args, "export_engine", None),
         "export_years": getattr(args, "export_years", None),
         "export_strict": getattr(args, "export_strict", None),
         "max_retries": getattr(args, "max_retries", None),
@@ -224,6 +230,21 @@ def cmd_download(args: argparse.Namespace) -> None:
     if max_retries < 0:
         max_retries = 0
     cfg["max_retries"] = max_retries
+    state_backend = str(cfg.get("state_backend", "auto") or "auto").strip().lower()
+    if state_backend not in {"auto", "json", "sqlite"}:
+        eprint("错误：state_backend 必须是 auto、json 或 sqlite")
+        sys.exit(2)
+    cfg["state_backend"] = state_backend
+    storage_mode = str(cfg.get("storage_mode", "compact") or "compact").strip().lower()
+    if storage_mode not in {"compact", "append"}:
+        eprint("错误：storage_mode 必须是 compact 或 append")
+        sys.exit(2)
+    cfg["storage_mode"] = storage_mode
+    export_engine = str(cfg.get("export_engine", "pandas") or "pandas").strip().lower()
+    if export_engine not in {"pandas", "duckdb"}:
+        eprint("错误：export_engine 必须是 pandas 或 duckdb")
+        sys.exit(2)
+    cfg["export_engine"] = export_engine
     use_vip = cfg.get("use_vip")
     if use_vip is None:
         use_vip = True

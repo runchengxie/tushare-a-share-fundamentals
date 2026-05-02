@@ -39,3 +39,34 @@ def test_upsert_overwrites(tmp_path):
     ss.upsert_dataset_state(conn, updated)
     fetched = ss.get_dataset_state(conn, "income", 2021)
     assert fetched == updated
+
+
+def test_run_log_roundtrip(tmp_path):
+    db_path = tmp_path / "state.db"
+    conn = ss.init_state_store(db_path)
+
+    ss.insert_run_log(
+        conn,
+        run_id="run-1",
+        started_at="2026-05-02T00:00:00+00:00",
+        status="running",
+        config_hash="abc",
+    )
+    ss.finish_run_log(
+        conn,
+        run_id="run-1",
+        finished_at="2026-05-02T00:01:00+00:00",
+        status="success",
+    )
+
+    rows = ss.fetch_run_logs(conn)
+    assert rows == [
+        (
+            "run-1",
+            "2026-05-02T00:00:00+00:00",
+            "2026-05-02T00:01:00+00:00",
+            "success",
+            "abc",
+            None,
+        )
+    ]

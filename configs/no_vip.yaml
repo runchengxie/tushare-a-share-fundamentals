@@ -1,0 +1,30 @@
+# 非 VIP token 模板。VIP-only 批量接口会被跳过。
+
+years: 10
+recent_quarters: 4
+data_dir: "data"
+
+use_vip: false
+max_per_minute: 60
+max_retries: 3
+
+datasets:
+  - name: income
+    report_types: [1]
+  - name: balancesheet
+    report_types: [1]
+  - name: cashflow
+    report_types: [1]
+  - name: express
+  - name: disclosure_date
+
+state_backend: "auto"
+state_path: null
+storage_mode: "compact"
+
+export_enabled: false
+export_out_format: "csv"
+export_out_dir: null
+export_kinds: ""
+export_annual_strategy: "cumulative"
+export_engine: "pandas"

@@ -67,11 +67,14 @@ def test_config_example_matches_download_defaults():
         "use_vip",
         "max_per_minute",
         "max_retries",
+        "state_backend",
+        "storage_mode",
         "export_enabled",
         "export_out_format",
         "export_out_dir",
         "export_kinds",
         "export_annual_strategy",
+        "export_engine",
     ]
     for key in keys:
         assert config.get(key) == defaults.get(key), key
@@ -85,6 +88,29 @@ def test_cli_help_recent_quarters_default_matches_code(monkeypatch, capsys):
     default_value = download_cmd._download_defaults()["recent_quarters"]
     assert f"默认 {default_value}" in help_text
     assert "默认 8" not in help_text
+
+
+def test_new_documented_commands_parse(monkeypatch):
+    args = _parse_argv(
+        monkeypatch,
+        ["funda", "query", "select count(*) from income", "--dataset-root", "data"],
+    )
+    assert args.cmd == "query"
+    assert args.sql == "select count(*) from income"
+
+    args = _parse_argv(
+        monkeypatch,
+        ["funda", "compact", "--dataset-root", "data", "--datasets", "income"],
+    )
+    assert args.cmd == "compact"
+    assert args.datasets == ["income"]
+
+    args = _parse_argv(
+        monkeypatch,
+        ["funda", "download", "--state-backend", "sqlite", "--storage-mode", "append"],
+    )
+    assert args.state_backend == "sqlite"
+    assert args.storage_mode == "append"
 
 
 def test_generated_doc_fields_match_committed_docs():

@@ -11,6 +11,7 @@ funda export --dataset-root data --out-dir data/export
 - 读取 `--dataset-root`，默认 `data`。
 - 输出格式为 CSV。
 - 自动扫描可导出的平面数据集。
+- 默认使用 pandas/pyarrow 引擎；可用 `--engine duckdb` 通过 DuckDB 扫描 Parquet。
 - `--kinds` 默认为空，因此默认跳过 `income` 派生口径。
 - 输出目录为 `<out-dir>/csv/`；如果 `--out-dir` 本身名为 `csv`，则直接写入该目录。
 
@@ -26,6 +27,7 @@ funda export --dataset-root data --out-dir data/export
 
 ```bash
 funda export --flat-datasets balancesheet,cashflow
+funda export --flat-datasets balancesheet,cashflow --engine duckdb
 ```
 
 排除数据集：
@@ -115,6 +117,7 @@ funda download --export --export-kinds annual,single,cumulative
 | `--export-out-dir DIR` | 导出目录 |
 | `--export-kinds annual,single,cumulative` | `income` 派生口径 |
 | `--export-annual-strategy cumulative|sum4` | 年度策略 |
+| `--export-engine pandas|duckdb` | 下载后导出读取引擎 |
 | `--export-years N` | 导出最近 N 年 |
 | `--strict-export` | 导出失败时返回错误 |
 

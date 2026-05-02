@@ -1,6 +1,5 @@
 import json
 from argparse import Namespace
-from pathlib import Path
 
 import pytest
 
@@ -149,23 +148,21 @@ def test_state_clear_sqlite_key(tmp_path, capsys):
 
 
 def test_state_backend_auto_prefers_sqlite(monkeypatch, tmp_path):
-    repo_root = tmp_path
-    (repo_root / "meta").mkdir()
-    db_path = repo_root / "meta" / "state.db"
+    data_dir = tmp_path / "data"
+    db_path = data_dir / "_state" / "state.db"
+    db_path.parent.mkdir(parents=True)
     db_path.write_bytes(b"")
-    data_dir = repo_root / "data"
-    data_dir.mkdir()
 
     args = make_args(data_dir=str(data_dir))
-    monkeypatch.chdir(repo_root)
+    monkeypatch.chdir(tmp_path)
 
     backend, path = state_cmd._resolve_backend_and_path(args)
 
     assert backend == "sqlite"
-    assert path == Path("meta") / "state.db"
+    assert path == db_path
 
 
-def test_state_backend_auto_defaults_to_json(monkeypatch, tmp_path):
+def test_state_backend_auto_defaults_to_sqlite(monkeypatch, tmp_path):
     data_dir = tmp_path / "data"
     data_dir.mkdir()
     args = make_args(data_dir=str(data_dir))
@@ -174,5 +171,38 @@ def test_state_backend_auto_defaults_to_json(monkeypatch, tmp_path):
 
     backend, path = state_cmd._resolve_backend_and_path(args)
 
+    assert backend == "sqlite"
+    assert path == data_dir / "_state" / "state.db"
+
+
+def test_state_backend_auto_migrates_json(tmp_path, capsys):
+    data_dir = tmp_path / "data"
+    json_path = data_dir / "_state" / "state.json"
+    json_path.parent.mkdir(parents=True)
+    json_path.write_text(json.dumps({"income": {"last_period": "20231231"}}), "utf-8")
+
+    args = make_args(action="show", backend="auto", data_dir=str(data_dir))
+    state_cmd.cmd_state(args)
+
+    captured = capsys.readouterr()
+    assert "kv_state" in captured.out
+    assert "20231231" in captured.out
+    assert json_path.exists()
+    assert (data_dir / "_state" / "state.db").exists()
+
+
+def test_state_backend_auto_uses_suffix(tmp_path):
+    db_path = tmp_path / "custom.db"
+    json_path = tmp_path / "custom.json"
+
+    backend, path = state_cmd._resolve_backend_and_path(
+        make_args(backend="auto", state_path=str(db_path))
+    )
+    assert backend == "sqlite"
+    assert path == db_path
+
+    backend, path = state_cmd._resolve_backend_and_path(
+        make_args(backend="auto", state_path=str(json_path))
+    )
     assert backend == "json"
-    assert path == data_dir / "_state" / "state.json"
+    assert path == json_path

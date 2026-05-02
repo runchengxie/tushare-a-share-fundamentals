@@ -9,7 +9,7 @@
 - 支持 10 类 TuShare 基本面数据集：三张财务报表、业绩预告、业绩快报、分红、财务指标、审计意见、主营业务构成、财报披露计划。
 - 默认下载近 10 年季度数据，并滚动刷新最近 4 个季度。
 - 输出目录默认为 `data/<dataset>/year=YYYY/data.parquet`。
-- 增量状态默认为 JSON 文件：`data/_state/state.json`。
+- 增量状态默认使用 SQLite：`data/_state/state.db`；旧 JSON 状态会在 auto 模式下兼容迁移。
 - 失败清单写入 `data/_state/failures/`，便于后续排查和补跑。
 - 可在下载后运行 `funda export`，生成平面表和 `income` 的年度、季度累计、单季口径导出。
 
@@ -43,6 +43,7 @@ funda --help
 ```bash
 export TUSHARE_TOKEN="your-token"
 
+cp config.example.yaml config.yml
 funda download
 funda export --dataset-root data --out-dir data/export
 ```
@@ -53,6 +54,13 @@ funda export --dataset-root data --out-dir data/export
 cp .env.example .env
 cp .envrc.example .envrc
 direnv allow
+```
+
+根目录 `config.yml` 或 `config.yaml` 是默认运行时配置。更多场景模板放在 `configs/`，可复制后使用：
+
+```bash
+cp configs/full.yaml config.yml
+cp configs/no_vip.yaml config.yml
 ```
 
 `funda download` 默认下载常用数据集，跳过耗时较长的 `dividend` 和 `fina_audit`，并且只写 parquet 缓存。需要下载这两个数据集时建议单独执行：
@@ -74,7 +82,10 @@ funda download --audit-only
 | 下载完成后立即导出 | `funda download --export --export-kinds annual,single,cumulative` |
 | 导出已有缓存 | `funda export --dataset-root data --out-dir data/export` |
 | 查看状态 | `funda state show --backend json --data-dir data` |
+| 查看 SQLite 状态 | `funda state show --state-backend sqlite --data-dir data` |
 | 查看失败清单 | `funda state ls-failures --data-dir data` |
+| DuckDB 查询本地数据 | `funda query "select count(*) from income" --dataset-root data` |
+| compact 年度分区 | `funda compact --dataset-root data --datasets income --years 2024` |
 | 查看帮助 | `funda download --help` |
 
 ## 默认行为
@@ -85,7 +96,8 @@ funda download --audit-only
 - 常规下载：默认包含 `income`、`balancesheet`、`cashflow`、`forecast`、`express`、`fina_indicator`、`fina_mainbz`、`disclosure_date`。
 - 单独下载：`dividend` 逐日抓取，`fina_audit` 逐股抓取，默认不随常规下载运行。
 - 导出：默认不自动导出；使用 `--export` 或单独运行 `funda export`。
-- 状态：下载流程目前使用 JSON 状态文件；SQLite 后端只用于 `funda state` 的查看和维护操作。
+- 状态：`auto` 模式默认使用 `data/_state/state.db`；显式 `--state-backend json` 可继续使用 JSON 状态。
+- 存储：主数据始终是 Parquet；DuckDB 只作为可选查询、导出、覆盖率执行引擎。
 - 旧版 `--raw-only` 与 `--build-only` 参数已不属于当前 CLI。
 
 ## 文档

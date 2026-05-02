@@ -6,41 +6,20 @@ from pathlib import Path
 from typing import Iterable
 
 from ..common import eprint
-from ..state_backend import JsonStateBackend, SQLiteStateBackend, StateBackend
-
-_DEFAULT_JSON_RELATIVE = Path("_state") / "state.json"
-_DEFAULT_SQLITE_PATH = Path("meta") / "state.db"
-
-
-def _default_json_path(data_dir: Path) -> Path:
-    return data_dir / _DEFAULT_JSON_RELATIVE
+from ..state_backend import (
+    StateBackend,
+    open_state_backend,
+    resolve_state_backend,
+)
 
 
 def _resolve_backend_and_path(args: argparse.Namespace) -> tuple[str, Path]:
-    backend = args.backend
-    state_path_arg = Path(args.state_path) if args.state_path else None
-    data_dir = Path(args.data_dir or "data")
-
-    if backend == "auto":
-        if state_path_arg:
-            backend = "sqlite" if state_path_arg.suffix == ".db" else "json"
-        else:
-            sqlite_path = _DEFAULT_SQLITE_PATH
-            if sqlite_path.exists():
-                backend = "sqlite"
-                state_path_arg = sqlite_path
-            else:
-                backend = "json"
-                state_path_arg = _default_json_path(data_dir)
-    elif backend == "sqlite" and state_path_arg is None:
-        state_path_arg = _DEFAULT_SQLITE_PATH
-    elif backend == "json" and state_path_arg is None:
-        state_path_arg = _default_json_path(data_dir)
-
-    if backend not in {"json", "sqlite"}:
-        raise ValueError(f"未知 backend: {backend}")
-
-    return backend, state_path_arg  # type: ignore[return-value]
+    resolved = resolve_state_backend(
+        backend=args.backend,
+        state_path=args.state_path,
+        data_dir=args.data_dir or "data",
+    )
+    return resolved.backend, resolved.path
 
 
 def _ls_failures(data_dir: Path) -> None:
@@ -64,17 +43,18 @@ def _ls_failures(data_dir: Path) -> None:
 
 def cmd_state(args: argparse.Namespace) -> None:
     data_dir = Path(args.data_dir or "data")
-    backend, state_path = _resolve_backend_and_path(args)
 
     if args.action == "ls-failures":
         _ls_failures(data_dir)
         return
 
     backend_impl: StateBackend
-    if backend == "json":
-        backend_impl = JsonStateBackend(state_path)
-    else:
-        backend_impl = SQLiteStateBackend(state_path)
+    resolved = resolve_state_backend(
+        backend=args.backend,
+        state_path=args.state_path,
+        data_dir=data_dir,
+    )
+    backend_impl = open_state_backend(resolved)
 
     if args.action == "show":
         result = backend_impl.snapshot(args.dataset)
@@ -114,6 +94,12 @@ def register_state_subparser(subparsers: argparse._SubParsersAction) -> None:
         help="操作类型",
     )
     sp.add_argument("--backend", choices=["auto", "json", "sqlite"], default="auto")
+    sp.add_argument(
+        "--state-backend",
+        dest="backend",
+        choices=["auto", "json", "sqlite"],
+        help="状态后端别名：auto/json/sqlite",
+    )
     sp.add_argument("--state-path", help="状态文件或数据库路径")
     sp.add_argument("--data-dir", default="data", help="多数据集数据目录（默认 data）")
     sp.add_argument("--dataset", help="目标数据集名称")

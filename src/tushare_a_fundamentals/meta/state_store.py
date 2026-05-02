@@ -41,6 +41,17 @@ CREATE TABLE IF NOT EXISTS kv_state (
 );
 """
 
+RUN_LOG_SCHEMA = """
+CREATE TABLE IF NOT EXISTS run_log (
+  run_id TEXT PRIMARY KEY,
+  started_at TEXT,
+  finished_at TEXT,
+  status TEXT,
+  config_hash TEXT,
+  error TEXT
+);
+"""
+
 
 def init_state_store(path: str | Path) -> Connection:
     """Initialise a SQLite-backed state store.
@@ -59,6 +70,7 @@ def init_state_store(path: str | Path) -> Connection:
     cur.execute(DATASET_STATE_SCHEMA)
     cur.execute(WATERMARKS_SCHEMA)
     cur.execute(KV_STATE_SCHEMA)
+    cur.execute(RUN_LOG_SCHEMA)
     conn.commit()
     return conn
 
@@ -104,6 +116,66 @@ def fetch_all_kv_state(
             " WHERE dataset=? ORDER BY state_key",
             (dataset,),
         )
+    return cur.fetchall()
+
+
+def insert_run_log(
+    conn: Connection,
+    *,
+    run_id: str,
+    started_at: str,
+    status: str,
+    config_hash: str | None = None,
+) -> None:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO run_log(run_id, started_at, status, config_hash)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(run_id) DO UPDATE SET
+            started_at=excluded.started_at,
+            status=excluded.status,
+            config_hash=excluded.config_hash
+        """,
+        (run_id, started_at, status, config_hash),
+    )
+    conn.commit()
+
+
+def finish_run_log(
+    conn: Connection,
+    *,
+    run_id: str,
+    finished_at: str,
+    status: str,
+    error: str | None = None,
+) -> None:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE run_log
+        SET finished_at=?, status=?, error=?
+        WHERE run_id=?
+        """,
+        (finished_at, status, error, run_id),
+    )
+    if cur.rowcount == 0:
+        cur.execute(
+            """
+            INSERT INTO run_log(run_id, finished_at, status, error)
+            VALUES (?, ?, ?, ?)
+            """,
+            (run_id, finished_at, status, error),
+        )
+    conn.commit()
+
+
+def fetch_run_logs(conn: Connection) -> list[tuple[str, str, str, str, str, str]]:
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT run_id, started_at, finished_at, status, config_hash, error"
+        " FROM run_log ORDER BY started_at, run_id"
+    )
     return cur.fetchall()
 
 

@@ -17,6 +17,21 @@ cp config.example.yaml config.yml
 
 命令行参数优先级高于配置文件。
 
+`configs/` 目录提供场景化模板，但不会被自动加载。需要使用时可以复制到根目录，或通过 `--config` 显式指定：
+
+```bash
+cp configs/full.yaml config.yml
+funda download --config configs/no_vip.yaml
+```
+
+| 模板 | 用途 |
+| --- | --- |
+| `configs/minimal.yaml` | 最小可运行配置 |
+| `configs/full.yaml` | 全数据集配置 |
+| `configs/no_vip.yaml` | 非 VIP token 配置 |
+| `configs/audit.yaml` | 审计意见单独抓取配置 |
+| `configs/export.yaml` | 下载后自动导出配置 |
+
 ## 环境变量
 
 `funda` 读取 shell 环境变量或 `--token` 参数。它不会自动读取 `.env` 文件。使用 `.env` 时请配合 `direnv`，或把变量导出到当前 shell。
@@ -45,6 +60,8 @@ data_dir: "data"
 use_vip: true
 max_per_minute: 90
 max_retries: 3
+state_backend: "auto"
+storage_mode: "compact"
 ```
 
 ## 数据集配置
@@ -88,10 +105,28 @@ recent_quarters: 4
 ## 状态路径
 
 ```yaml
+state_backend: "auto"
 state_path: null
 ```
 
-下载流程目前使用 JSON 状态文件。`state_path` 只覆盖 JSON 状态文件位置；留空时写入 `<data_dir>/_state/state.json`。SQLite 仅用于 `funda state` 的维护操作，详见 [state.md](state.md)。
+`state_backend` 可选 `auto`、`json`、`sqlite`。`auto` 模式下，新数据目录默认写入 `<data_dir>/_state/state.db`；如果检测到旧 `<data_dir>/_state/state.json` 且没有 SQLite 状态库，会复制迁移到 SQLite，原 JSON 文件不会删除。
+
+`state_path` 可覆盖默认路径。后缀为 `.db` 时选择 SQLite，其他后缀选择 JSON。显式 `state_backend: json` 可继续使用 `<data_dir>/_state/state.json`。
+
+详见 [state.md](state.md)。
+
+## 存储模式
+
+```yaml
+storage_mode: "compact"
+```
+
+`storage_mode` 可选：
+
+| 值 | 说明 |
+| --- | --- |
+| `compact` | 默认兼容行为，写入后生成 `year=YYYY/data.parquet` 并刷新 manifest |
+| `append` | 写入 `part-*.parquet`，后续通过 `funda compact` 合并去重 |
 
 ## 字段清单
 
@@ -119,6 +154,7 @@ export_out_format: "csv"
 export_out_dir: null
 export_kinds: "annual,single,cumulative"
 export_annual_strategy: "cumulative"
+export_engine: "pandas"
 ```
 
 常用导出配置：
@@ -136,3 +172,4 @@ export_annual_strategy: "cumulative"
 | `export_no_flat` | 跳过平面导出 |
 | `export_years` | 导出最近 N 年 |
 | `export_strict` | 导出失败时让 `download` 返回错误 |
+| `export_engine` | `pandas` 或 `duckdb`，默认 `pandas` |

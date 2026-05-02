@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from tushare_a_fundamentals.commands.coverage import cmd_coverage
+from tushare_a_fundamentals.duckdb_engine import DuckDBUnavailableError
 
 pytestmark = pytest.mark.unit
 
@@ -78,3 +79,19 @@ def test_cmd_coverage_csv_output(tmp_path):
     assert len(content) >= 2
     header = content[0].split(",")
     assert {"ts_code", "missing_periods"}.issubset(set(header))
+
+
+def test_cmd_coverage_duckdb_missing_dependency(monkeypatch, tmp_path, capsys):
+    def fail_connect():
+        raise DuckDBUnavailableError("missing duckdb")
+
+    monkeypatch.setattr(
+        "tushare_a_fundamentals.commands.coverage.connect", fail_connect
+    )
+    args = SimpleNamespace(dataset_root=str(tmp_path), by="ticker", engine="duckdb")
+
+    with pytest.raises(SystemExit) as excinfo:
+        cmd_coverage(args)
+
+    assert excinfo.value.code == 2
+    assert "missing duckdb" in capsys.readouterr().err

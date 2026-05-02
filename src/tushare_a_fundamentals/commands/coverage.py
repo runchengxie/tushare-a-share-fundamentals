@@ -6,24 +6,17 @@ import pandas as pd
 
 from ..common import _load_dataset
 from ..config import eprint
+from ..duckdb_engine import DuckDBUnavailableError, connect, read_parquet_sql
 from ..income_export import ensure_ts_code
 
 
 def cmd_coverage(args: argparse.Namespace) -> None:
     root = Path(args.dataset_root)
     years = getattr(args, "years", 10)
-    inv_path = root / "dataset=inventory_income" / "periods.parquet"
-    try:
-        inv = pd.read_parquet(inv_path)
-    except Exception as exc:
-        eprint(f"错误：读取 {inv_path} 失败：{exc}")
-        sys.exit(2)
-    periods = sorted(inv["end_date"].astype(str).tolist())
-    if years is not None:
-        periods = periods[-years * 4 :]
-    fact = ensure_ts_code(
-        _load_dataset(str(root), "fact_income_cum"), context="coverage"
-    )
+    if getattr(args, "engine", "pandas") == "duckdb":
+        periods, fact = _load_inputs_duckdb(root, years)
+    else:
+        periods, fact = _load_inputs_pandas(root, years)
     if "is_latest" in fact.columns:
         fact = fact[fact["is_latest"] == 1]
     fact["end_date"] = fact["end_date"].astype(str)
@@ -99,3 +92,47 @@ def cmd_coverage(args: argparse.Namespace) -> None:
         pivot = pivot.sort_index().fillna(0).astype(int)
         print("标记说明：1=覆盖，0=缺口，-1=豁免")
         print(pivot.to_string())
+
+
+def _load_inputs_pandas(
+    root: Path, years: int | None
+) -> tuple[list[str], pd.DataFrame]:
+    inv_path = root / "dataset=inventory_income" / "periods.parquet"
+    try:
+        inv = pd.read_parquet(inv_path)
+    except Exception as exc:
+        eprint(f"错误：读取 {inv_path} 失败：{exc}")
+        sys.exit(2)
+    periods = sorted(inv["end_date"].astype(str).tolist())
+    if years is not None:
+        periods = periods[-years * 4 :]
+    fact = ensure_ts_code(
+        _load_dataset(str(root), "fact_income_cum"), context="coverage"
+    )
+    return periods, fact
+
+
+def _load_inputs_duckdb(
+    root: Path, years: int | None
+) -> tuple[list[str], pd.DataFrame]:
+    inv_path = root / "dataset=inventory_income" / "periods.parquet"
+    fact_root = root / "dataset=fact_income_cum"
+    try:
+        conn = connect()
+    except DuckDBUnavailableError as exc:
+        eprint(f"错误：{exc}")
+        raise SystemExit(2) from exc
+    try:
+        inv_relation = read_parquet_sql(inv_path)
+        inv = conn.execute(f"SELECT end_date FROM {inv_relation}").fetchdf()
+        relation = read_parquet_sql(fact_root)
+        fact = conn.execute(f"SELECT * FROM {relation}").fetchdf()
+    except Exception as exc:
+        eprint(f"错误：DuckDB 读取覆盖率数据失败：{exc}")
+        raise SystemExit(2) from exc
+    finally:
+        conn.close()
+    periods = sorted(inv["end_date"].astype(str).tolist())
+    if years is not None:
+        periods = periods[-years * 4 :]
+    return periods, ensure_ts_code(fact, context="coverage")

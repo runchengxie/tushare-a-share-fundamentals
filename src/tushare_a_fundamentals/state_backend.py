@@ -2,10 +2,19 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Protocol
 
-from .meta.state_store import fetch_all_kv_state, init_state_store, upsert_kv_state
+from .meta.state_store import (
+    fetch_all_kv_state,
+    fetch_run_logs,
+    finish_run_log,
+    init_state_store,
+    insert_run_log,
+    upsert_kv_state,
+)
 
 
 def _ensure_parent(path: Path) -> None:
@@ -25,6 +34,92 @@ class StateBackend(Protocol):
     ) -> None: ...
 
     def snapshot(self, dataset: str | None = None) -> Dict[str, Any]: ...
+
+    def record_run_start(
+        self, run_id: str, *, config_hash: str | None = None
+    ) -> None: ...
+
+    def record_run_finish(
+        self, run_id: str, *, status: str, error: str | None = None
+    ) -> None: ...
+
+
+@dataclass(frozen=True)
+class ResolvedStateBackend:
+    backend: str
+    path: Path
+    migrated_from: Path | None = None
+
+
+def default_json_state_path(data_dir: str | Path) -> Path:
+    return Path(data_dir) / "_state" / "state.json"
+
+
+def default_sqlite_state_path(data_dir: str | Path) -> Path:
+    return Path(data_dir) / "_state" / "state.db"
+
+
+def resolve_state_backend(
+    *,
+    backend: str | None = "auto",
+    state_path: str | Path | None = None,
+    data_dir: str | Path = "data",
+) -> ResolvedStateBackend:
+    requested = (backend or "auto").strip().lower()
+    if requested not in {"auto", "json", "sqlite"}:
+        raise ValueError(f"未知 state_backend: {backend}")
+
+    data_dir_path = Path(data_dir)
+    explicit_path = Path(state_path) if state_path else None
+    json_path = default_json_state_path(data_dir_path)
+    sqlite_path = default_sqlite_state_path(data_dir_path)
+
+    if requested == "auto":
+        if explicit_path is not None:
+            selected = "sqlite" if explicit_path.suffix.lower() == ".db" else "json"
+            return ResolvedStateBackend(selected, explicit_path)
+        if sqlite_path.exists():
+            return ResolvedStateBackend("sqlite", sqlite_path)
+        if json_path.exists():
+            return ResolvedStateBackend("sqlite", sqlite_path, migrated_from=json_path)
+        return ResolvedStateBackend("sqlite", sqlite_path)
+
+    if explicit_path is None:
+        explicit_path = sqlite_path if requested == "sqlite" else json_path
+    return ResolvedStateBackend(requested, explicit_path)
+
+
+def migrate_json_state_to_sqlite(json_path: Path, sqlite_path: Path) -> bool:
+    if not json_path.exists():
+        return False
+    try:
+        payload = json.loads(json_path.read_text("utf-8"))
+    except json.JSONDecodeError:
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    conn = init_state_store(sqlite_path)
+    try:
+        for dataset, values in payload.items():
+            if not isinstance(values, dict):
+                continue
+            for key, value in values.items():
+                upsert_kv_state(conn, str(dataset), str(key), str(value))
+    finally:
+        conn.close()
+    return True
+
+
+def open_state_backend(resolved: ResolvedStateBackend) -> StateBackend:
+    if resolved.backend == "json":
+        return JsonStateBackend(resolved.path)
+    if resolved.migrated_from is not None and not resolved.path.exists():
+        migrate_json_state_to_sqlite(resolved.migrated_from, resolved.path)
+    return SQLiteStateBackend(resolved.path)
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 class JsonStateBackend:
@@ -72,6 +167,14 @@ class JsonStateBackend:
         if dataset:
             return dict(self.data.get(dataset, {}))
         return {ds: dict(values) for ds, values in self.data.items()}
+
+    def record_run_start(self, run_id: str, *, config_hash: str | None = None) -> None:
+        return None
+
+    def record_run_finish(
+        self, run_id: str, *, status: str, error: str | None = None
+    ) -> None:
+        return None
 
     def _flush(self) -> None:
         _ensure_parent(self.path)
@@ -224,13 +327,66 @@ class SQLiteStateBackend:
                         dirty,
                     ) in cur.fetchall()
                 ]
+            if dataset is None:
+                payload["run_log"] = [
+                    {
+                        "run_id": run_id,
+                        "started_at": started_at,
+                        "finished_at": finished_at,
+                        "status": status,
+                        "config_hash": config_hash,
+                        "error": error,
+                    }
+                    for (
+                        run_id,
+                        started_at,
+                        finished_at,
+                        status,
+                        config_hash,
+                        error,
+                    ) in fetch_run_logs(conn)
+                ]
             return payload
+        finally:
+            conn.close()
+
+    def record_run_start(self, run_id: str, *, config_hash: str | None = None) -> None:
+        conn = self._connect()
+        try:
+            insert_run_log(
+                conn,
+                run_id=run_id,
+                started_at=utc_now_iso(),
+                status="running",
+                config_hash=config_hash,
+            )
+        finally:
+            conn.close()
+
+    def record_run_finish(
+        self, run_id: str, *, status: str, error: str | None = None
+    ) -> None:
+        conn = self._connect()
+        try:
+            finish_run_log(
+                conn,
+                run_id=run_id,
+                finished_at=utc_now_iso(),
+                status=status,
+                error=error,
+            )
         finally:
             conn.close()
 
 
 __all__ = [
     "StateBackend",
+    "ResolvedStateBackend",
     "JsonStateBackend",
     "SQLiteStateBackend",
+    "default_json_state_path",
+    "default_sqlite_state_path",
+    "migrate_json_state_to_sqlite",
+    "open_state_backend",
+    "resolve_state_backend",
 ]

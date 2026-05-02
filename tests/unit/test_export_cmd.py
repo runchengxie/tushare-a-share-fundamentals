@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from tushare_a_fundamentals.commands import export as expmod
+from tushare_a_fundamentals.duckdb_engine import DuckDBUnavailableError
 
 pytestmark = pytest.mark.unit
 
@@ -31,6 +32,7 @@ def _default_args(dataset_root: Path) -> argparse.Namespace:
         gzip=False,
         no_income=False,
         no_flat=False,
+        engine="pandas",
     )
 
 
@@ -233,3 +235,23 @@ def test_cmd_export_gzip_rejects_parquet(tmp_path):
         expmod.cmd_export(args)
 
     assert excinfo.value.code == 2
+
+
+def test_cmd_export_duckdb_missing_dependency(monkeypatch, tmp_path, capsys):
+    data_root = tmp_path / "data"
+    frame = pd.DataFrame({"ts_code": ["000001.SZ"], "end_date": ["20240331"]})
+    _make_dataset(data_root, "income", "2024", frame)
+
+    def fail_connect():
+        raise DuckDBUnavailableError("missing duckdb")
+
+    monkeypatch.setattr(expmod, "connect", fail_connect)
+    args = _default_args(data_root)
+    args.flat_datasets = "income"
+    args.engine = "duckdb"
+
+    with pytest.raises(SystemExit) as excinfo:
+        expmod.cmd_export(args)
+
+    assert excinfo.value.code == 2
+    assert "missing duckdb" in capsys.readouterr().err

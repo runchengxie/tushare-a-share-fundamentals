@@ -1,0 +1,23 @@
+# 审计意见单独抓取模板。建议配合 `funda download --audit-only` 使用。
+
+audit_quarters: 1
+recent_quarters: 1
+data_dir: "data"
+
+datasets:
+  - name: fina_audit
+
+use_vip: true
+max_per_minute: 90
+max_retries: 5
+
+state_backend: "auto"
+state_path: null
+storage_mode: "compact"
+
+export_enabled: false
+export_out_format: "csv"
+export_out_dir: null
+export_kinds: ""
+export_annual_strategy: "cumulative"
+export_engine: "pandas"

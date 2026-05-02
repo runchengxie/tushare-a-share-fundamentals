@@ -1,0 +1,37 @@
+# 全数据集模板。复制为 config.yml 后按需修改。
+
+years: 10
+audit_quarters: 1
+recent_quarters: 4
+data_dir: "data"
+
+datasets:
+  - name: income
+    report_types: [1]
+  - name: balancesheet
+    report_types: [1]
+  - name: cashflow
+    report_types: [1]
+  - name: forecast
+  - name: express
+  - name: dividend
+  - name: fina_indicator
+  - name: fina_audit
+  - name: fina_mainbz
+    type: ["P", "D", "I"]
+  - name: disclosure_date
+
+use_vip: true
+max_per_minute: 90
+max_retries: 3
+
+state_backend: "auto"
+state_path: null
+storage_mode: "compact"
+
+export_enabled: false
+export_out_format: "csv"
+export_out_dir: null
+export_kinds: ""
+export_annual_strategy: "cumulative"
+export_engine: "pandas"
