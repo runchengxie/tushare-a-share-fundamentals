@@ -4,6 +4,8 @@ import pytest
 
 from tushare_a_fundamentals.common import _check_parquet_dependency
 
+pytestmark = pytest.mark.unit
+
 
 def test_parquet_dependency_present():
     pytest.importorskip("pyarrow")

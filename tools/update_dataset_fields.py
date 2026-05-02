@@ -130,7 +130,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not doc_path.exists():
             parser.error(f"文档不存在：{doc_path}")
         try:
-            fields = extract_output_fields(doc_path.read_text(encoding="utf-8").splitlines())
+            fields = extract_output_fields(
+                doc_path.read_text(encoding="utf-8").splitlines()
+            )
         except ValueError as exc:
             parser.error(f"{doc_name} 解析失败：{exc}")
         mapping[dataset] = fields
@@ -148,4 +150,3 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

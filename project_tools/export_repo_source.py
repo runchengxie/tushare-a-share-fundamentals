@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 from typing import List, Optional, Set
 
+
 # --- CONFIGURATION ---
 def _find_project_root(start: Path) -> Path:
     current = start if start.is_dir() else start.parent
@@ -51,7 +52,7 @@ EXCLUDE_DIRS_ANYWHERE: Set[str] = {
 # This allows keeping nested directories with the same name (e.g., 'src/app/data').
 EXCLUDE_DIRS_ROOT_ONLY: Set[str] = {
     "data",  # User-specific data, not source code
-#     "tests",
+    #     "tests",
     ".ruff_cache",
     "out",
     "cache",
@@ -142,9 +143,9 @@ def process_notebook(filepath: Path) -> Optional[str]:
                 continue
 
             if cell_type == "code":
-                content_parts.append(f"# --- Code Cell {i+1} ---\n{source}\n")
+                content_parts.append(f"# --- Code Cell {i + 1} ---\n{source}\n")
             elif cell_type == "markdown":
-                content_parts.append(f"# --- Markdown Cell {i+1} ---\n{source}\n")
+                content_parts.append(f"# --- Markdown Cell {i + 1} ---\n{source}\n")
 
         return "\n".join(content_parts)
     except Exception as e:
@@ -269,9 +270,7 @@ def collect_project_tree_lines(
                 lines.append(f"{prefix}{connector}[include] {child.name}")
             else:
                 stats["excluded_files"] += 1
-                lines.append(
-                    f"{prefix}{connector}[exclude] {child.name} ({reason})"
-                )
+                lines.append(f"{prefix}{connector}[exclude] {child.name} ({reason})")
 
         return lines
 

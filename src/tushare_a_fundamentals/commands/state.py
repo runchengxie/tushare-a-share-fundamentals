@@ -118,5 +118,5 @@ def register_state_subparser(subparsers: argparse._SubParsersAction) -> None:
     sp.add_argument("--data-dir", default="data", help="多数据集数据目录（默认 data）")
     sp.add_argument("--dataset", help="目标数据集名称")
     sp.add_argument("--year", type=int, help="针对 SQLite 状态时可指定年份分区")
-    sp.add_argument("--key", help="JSON 状态键名")
-    sp.add_argument("--value", help="JSON 状态值")
+    sp.add_argument("--key", help="状态键名")
+    sp.add_argument("--value", help="状态值")

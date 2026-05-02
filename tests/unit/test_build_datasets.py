@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from tushare_a_fundamentals.common import build_datasets_from_raw
+from tushare_a_fundamentals.income_export import build_datasets_from_raw
 
 pytestmark = pytest.mark.unit
 

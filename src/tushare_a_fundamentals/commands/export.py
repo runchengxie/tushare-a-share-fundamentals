@@ -16,12 +16,12 @@ import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 import pyarrow.types as patypes
 
-from ..common import (
+from ..config import eprint
+from ..income_export import (
     _concat_non_empty,
     _export_tables,
     build_income_export_tables,
     ensure_ts_code,
-    eprint,
 )
 from ..progress import ProgressManager
 
@@ -106,7 +106,9 @@ def _options_from_args(args: argparse.Namespace) -> ExportOptions:
         flat_datasets = [part.strip() for part in flat_raw.split(",") if part.strip()]
 
     raw_exclude = getattr(args, "flat_exclude", "") or ""
-    flat_exclude = {part.strip().lower() for part in raw_exclude.split(",") if part.strip()}
+    flat_exclude = {
+        part.strip().lower() for part in raw_exclude.split(",") if part.strip()
+    }
 
     include_income = not bool(getattr(args, "no_income", False)) and bool(kinds)
     include_flat = not bool(getattr(args, "no_flat", False))
@@ -180,12 +182,18 @@ def _export_flat_datasets(
     if datasets is None:
         datasets = _discover_datasets(opts.dataset_root)
     datasets = _unique_preserve_order(datasets)
-    datasets = [name for name in datasets if name and name.lower() not in opts.flat_exclude]
+    datasets = [
+        name for name in datasets if name and name.lower() not in opts.flat_exclude
+    ]
     if not datasets:
         return 0
 
     total_exports = 0
-    task = progress.add_task(f"导出平面数据集（共 {len(datasets)} 个）", len(datasets)) if progress else None
+    task = (
+        progress.add_task(f"导出平面数据集（共 {len(datasets)} 个）", len(datasets))
+        if progress
+        else None
+    )
     for name in datasets:
         total_exports += _export_single_dataset(opts, name, progress)
         if progress is not None:
@@ -277,7 +285,9 @@ def _write_dataset(
     except StopIteration:
         return False
 
-    out_path = _build_output_path(opts.flat_target_dir, base_name, opts.out_format, opts.gzip)
+    out_path = _build_output_path(
+        opts.flat_target_dir, base_name, opts.out_format, opts.gzip
+    )
     sink = None
     writer: pq.ParquetWriter | None = None
     first = True
@@ -322,9 +332,7 @@ def _build_dataset(source: Path) -> ds.Dataset:
     partitioning = ds.partitioning(
         pa.schema([pa.field("year", pa.string())]), flavor="hive"
     )
-    dataset = ds.dataset(
-        source.as_posix(), format="parquet", partitioning=partitioning
-    )
+    dataset = ds.dataset(source.as_posix(), format="parquet", partitioning=partitioning)
     schema = dataset.schema
     adjusted_schema = _resolve_null_fields(dataset, schema)
     if adjusted_schema is not schema:
@@ -339,9 +347,7 @@ def _build_dataset(source: Path) -> ds.Dataset:
 
 def _resolve_null_fields(dataset: ds.Dataset, schema: pa.Schema) -> pa.Schema:
     replacements: dict[str, pa.DataType] = {}
-    null_field_names = [
-        field.name for field in schema if patypes.is_null(field.type)
-    ]
+    null_field_names = [field.name for field in schema if patypes.is_null(field.type)]
     if not null_field_names:
         return schema
 
@@ -365,13 +371,14 @@ def _resolve_null_fields(dataset: ds.Dataset, schema: pa.Schema) -> pa.Schema:
         return schema
 
     new_fields = [
-        field.with_type(replacements.get(field.name, field.type))
-        for field in schema
+        field.with_type(replacements.get(field.name, field.type)) for field in schema
     ]
     return pa.schema(new_fields, metadata=schema.metadata)
 
 
-def _build_output_path(target_dir: Path, base: str, fmt: str, gzip_enabled: bool) -> Path:
+def _build_output_path(
+    target_dir: Path, base: str, fmt: str, gzip_enabled: bool
+) -> Path:
     target_dir.mkdir(parents=True, exist_ok=True)
     suffix = fmt.lower()
     filename = f"{base}.{suffix}"
@@ -403,7 +410,9 @@ def _cast_table(table: pa.Table) -> pa.Table:
     return table
 
 
-def _cast_column(column: pa.ChunkedArray | pa.Array, target: pa.DataType) -> pa.ChunkedArray | pa.Array:
+def _cast_column(
+    column: pa.ChunkedArray | pa.Array, target: pa.DataType
+) -> pa.ChunkedArray | pa.Array:
     if isinstance(column, pa.ChunkedArray):
         cast_chunks = [_cast_single(chunk, target) for chunk in column.chunks]
         return pa.chunked_array(cast_chunks, type=target)

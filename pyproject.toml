@@ -1,5 +1,5 @@
 [project]
-name = "tushare-a-fundamentals"
+name = "tushare-a-share-fundamentals"
 version = "0.2.0"
 description = "A-share fundamentals downloader using TuShare"
 readme = "README.md"
@@ -46,7 +46,19 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "W", "C90", "I"]
 # Ignore rules that conflict with the formatter
-ignore = ["E203", "E501"]
+ignore = ["E203"]
+
+[tool.ruff.lint.per-file-ignores]
+"project_tools/verify_tushare_tokens.py" = ["C901"]
+"src/tushare_a_fundamentals/commands/coverage.py" = ["C901"]
+"src/tushare_a_fundamentals/commands/download.py" = ["C901"]
+"src/tushare_a_fundamentals/common.py" = ["C901"]
+"src/tushare_a_fundamentals/downloader.py" = ["C901"]
+"src/tushare_a_fundamentals/income_export.py" = ["C901"]
+"src/tushare_a_fundamentals/meta/doc_fields.py" = ["E501"]
+"src/tushare_a_fundamentals/tushare_client.py" = ["C901"]
+"tests/**/*.py" = ["E501"]
+"tools/update_dataset_fields.py" = ["C901"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

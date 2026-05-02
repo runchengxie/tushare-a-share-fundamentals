@@ -1,6 +1,6 @@
 import pytest
 
-from tushare_a_fundamentals.common import (
+from tushare_a_fundamentals.retry import (
     RetryExhaustedError,
     RetryPolicy,
     call_with_retry,

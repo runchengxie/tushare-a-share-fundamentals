@@ -27,7 +27,9 @@ def test_cmd_download_runs_export_when_enabled(monkeypatch, tmp_path):
         vip_tokens=["tok"],
     )
     monkeypatch.setattr(download_cmd, "init_pro_api", lambda token: dummy_ctx)
-    monkeypatch.setattr(download_cmd, "ensure_enough_credits", lambda pro, required=5000: None)
+    monkeypatch.setattr(
+        download_cmd, "ensure_enough_credits", lambda pro, required=5000: None
+    )
     monkeypatch.setattr(download_cmd, "load_yaml", lambda path: {})
 
     export_args = {}

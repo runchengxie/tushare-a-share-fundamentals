@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from tushare_a_fundamentals.common import load_yaml
+from tushare_a_fundamentals.config import load_yaml
 
 pytestmark = pytest.mark.unit
 

@@ -1,6 +1,6 @@
 import pytest
 
-from tushare_a_fundamentals.common import _periods_from_range
+from tushare_a_fundamentals.periods import _periods_from_range
 
 pytestmark = pytest.mark.unit
 

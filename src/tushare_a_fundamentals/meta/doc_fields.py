@@ -100,7 +100,7 @@ DOC_FIELDS: dict[str, tuple[str, ...]] = {
         "asset_disp_income",
         "continued_net_profit",
         "end_net_profit",
-        "update_flag"
+        "update_flag",
     ),
     "balancesheet": (
         "ts_code",
@@ -260,7 +260,7 @@ DOC_FIELDS: dict[str, tuple[str, ...]] = {
         "accounts_pay",
         "oth_rcv_total",
         "fix_assets_total",
-        "update_flag"
+        "update_flag",
     ),
     "cashflow": (
         "ts_code",
@@ -359,7 +359,7 @@ DOC_FIELDS: dict[str, tuple[str, ...]] = {
         "beg_bal_cash",
         "end_bal_cash_equ",
         "beg_bal_cash_equ",
-        "update_flag"
+        "update_flag",
     ),
     "forecast": (
         "ts_code",
@@ -373,7 +373,7 @@ DOC_FIELDS: dict[str, tuple[str, ...]] = {
         "last_parent_net",
         "first_ann_date",
         "summary",
-        "change_reason"
+        "change_reason",
     ),
     "express": (
         "ts_code",
@@ -407,7 +407,7 @@ DOC_FIELDS: dict[str, tuple[str, ...]] = {
         "open_bps",
         "perf_summary",
         "is_audit",
-        "remark"
+        "remark",
     ),
     "dividend": (
         "ts_code",
@@ -425,7 +425,7 @@ DOC_FIELDS: dict[str, tuple[str, ...]] = {
         "div_listdate",
         "imp_ann_date",
         "base_date",
-        "base_share"
+        "base_share",
     ),
     "fina_indicator": (
         "ts_code",
@@ -594,7 +594,7 @@ DOC_FIELDS: dict[str, tuple[str, ...]] = {
         "q_netprofit_qoq",
         "equity_yoy",
         "rd_exp",
-        "update_flag"
+        "update_flag",
     ),
     "fina_audit": (
         "ts_code",
@@ -603,7 +603,7 @@ DOC_FIELDS: dict[str, tuple[str, ...]] = {
         "audit_result",
         "audit_fees",
         "audit_agency",
-        "audit_sign"
+        "audit_sign",
     ),
     "fina_mainbz": (
         "ts_code",
@@ -613,7 +613,7 @@ DOC_FIELDS: dict[str, tuple[str, ...]] = {
         "bz_profit",
         "bz_cost",
         "curr_type",
-        "update_flag"
+        "update_flag",
     ),
     "disclosure_date": (
         "ts_code",
@@ -621,6 +621,6 @@ DOC_FIELDS: dict[str, tuple[str, ...]] = {
         "end_date",
         "pre_date",
         "actual_date",
-        "modify_date"
+        "modify_date",
     ),
 }

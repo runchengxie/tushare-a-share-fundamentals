@@ -1,6 +1,6 @@
 import pytest
 
-from tushare_a_fundamentals.common import plan_from_mode
+from tushare_a_fundamentals.periods import plan_from_mode
 
 pytestmark = pytest.mark.unit
 

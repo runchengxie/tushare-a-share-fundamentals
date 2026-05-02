@@ -63,9 +63,7 @@ def init_state_store(path: str | Path) -> Connection:
     return conn
 
 
-def upsert_kv_state(
-    conn: Connection, dataset: str, key: str, value: str
-) -> None:
+def upsert_kv_state(conn: Connection, dataset: str, key: str, value: str) -> None:
     cur = conn.cursor()
     cur.execute(
         """
@@ -79,9 +77,7 @@ def upsert_kv_state(
     conn.commit()
 
 
-def delete_kv_state(
-    conn: Connection, dataset: str, key: str | None = None
-) -> None:
+def delete_kv_state(conn: Connection, dataset: str, key: str | None = None) -> None:
     cur = conn.cursor()
     if key is None:
         cur.execute("DELETE FROM kv_state WHERE dataset=?", (dataset,))

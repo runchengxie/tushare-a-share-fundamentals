@@ -164,7 +164,7 @@ DATASET_SPECS: Dict[str, DatasetSpec] = {
         dedup_group_keys=("ts_code", "end_date", "bz_item", "type"),
         default_year_column="end_date",
         type_param="type",
-        type_values=("P", "D"),
+        type_values=("P", "D", "I"),
         fields=_fields_for("fina_mainbz"),
         vip_supports_pagination=True,
     ),

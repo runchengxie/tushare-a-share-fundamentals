@@ -1,6 +1,6 @@
 import pytest
 
-from tushare_a_fundamentals.common import (
+from tushare_a_fundamentals.periods import (
     Mode,
     periods_by_quarters,
     periods_for_mode_by_years,

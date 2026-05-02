@@ -10,7 +10,9 @@ pytestmark = pytest.mark.integration
 
 
 def test_cli_requires_subcommand(monkeypatch):
-    dummy_ctx = ProContext(any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"])
+    dummy_ctx = ProContext(
+        any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"]
+    )
     monkeypatch.setattr(appmod, "init_pro_api", lambda token: dummy_ctx)
     monkeypatch.setattr(sys, "argv", ["funda"])
     with pytest.raises(SystemExit) as excinfo:
@@ -19,7 +21,9 @@ def test_cli_requires_subcommand(monkeypatch):
 
 
 def test_cli_falls_back_to_download(monkeypatch):
-    dummy_ctx = ProContext(any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"])
+    dummy_ctx = ProContext(
+        any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"]
+    )
     monkeypatch.setattr(appmod, "init_pro_api", lambda token: dummy_ctx)
     args = SimpleNamespace(cmd=None, token=None)
     monkeypatch.setattr(appmod, "parse_cli", lambda: args)
@@ -30,7 +34,9 @@ def test_cli_falls_back_to_download(monkeypatch):
     def fake_download(received):
         called["args"] = received
 
-    monkeypatch.setattr("tushare_a_fundamentals.commands.download.cmd_download", fake_download)
+    monkeypatch.setattr(
+        "tushare_a_fundamentals.commands.download.cmd_download", fake_download
+    )
 
     appmod.main()
 

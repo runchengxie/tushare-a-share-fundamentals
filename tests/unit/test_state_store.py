@@ -1,4 +1,8 @@
+import pytest
+
 from tushare_a_fundamentals.meta import state_store as ss
+
+pytestmark = pytest.mark.unit
 
 
 def test_init_and_roundtrip(tmp_path):

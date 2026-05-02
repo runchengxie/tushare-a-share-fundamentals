@@ -17,6 +17,7 @@ except ImportError as e:
     print("请运行: uv sync")
     sys.exit(1)
 
+
 def test_api_credits(api_key: str, source_name: str) -> bool:
     try:
         print(f"\n=== 测试 {source_name} ===")

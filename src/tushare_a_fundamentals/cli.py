@@ -1,8 +1,8 @@
 import argparse
 import sys
 
-from .common import eprint
-from .common import init_pro_api as _init_pro_api
+from .config import eprint
+from .tushare_client import init_pro_api as _init_pro_api
 
 # Re-export init_pro_api for tests that patch it at the CLI module level.
 init_pro_api = _init_pro_api
@@ -16,7 +16,7 @@ def parse_cli() -> argparse.Namespace:
     p.add_argument(
         "--recent-quarters",
         type=int,
-        help="近N季滚动刷新（默认 8）",
+        help="近 N 季滚动刷新（默认 4）",
     )
     p.add_argument("--max-retries", type=int, help="接口重试次数上限（默认 3）")
     vip_group = p.add_mutually_exclusive_group()
@@ -63,7 +63,9 @@ def parse_cli() -> argparse.Namespace:
         "--flat-datasets",
         type=str,
         default="auto",
-        help="平面导出数据集列表（auto/all 为自动检测，逗号分隔指定列表，none 表示跳过）",
+        help=(
+            "平面导出数据集列表（auto/all 为自动检测，逗号分隔指定列表，none 表示跳过）"
+        ),
     )
     sp_exp.add_argument(
         "--flat-exclude",
@@ -132,8 +134,8 @@ def parse_cli() -> argparse.Namespace:
     )
     sp_state.add_argument("--dataset", help="指定数据集")
     sp_state.add_argument("--year", type=int, help="SQLite 状态时可指定年份")
-    sp_state.add_argument("--key", help="JSON 状态键名")
-    sp_state.add_argument("--value", help="JSON 状态值")
+    sp_state.add_argument("--key", help="状态键名")
+    sp_state.add_argument("--value", help="状态值")
     sp_state.set_defaults(cmd="state")
 
     sp_dl = sub.add_parser("download", help="下载数据（默认增量补全）")
@@ -143,7 +145,7 @@ def parse_cli() -> argparse.Namespace:
     sp_dl.add_argument(
         "--recent-quarters",
         type=int,
-        help="近N季滚动刷新（默认 8）",
+        help="近 N 季滚动刷新（默认 4）",
     )
     sp_dl.add_argument(
         "--max-retries",

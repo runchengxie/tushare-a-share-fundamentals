@@ -4,7 +4,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..common import _load_dataset, ensure_ts_code, eprint
+from ..common import _load_dataset
+from ..config import eprint
+from ..income_export import ensure_ts_code
 
 
 def cmd_coverage(args: argparse.Namespace) -> None:
@@ -31,9 +33,7 @@ def cmd_coverage(args: argparse.Namespace) -> None:
         eprint("警告：指定时间窗口内没有可用数据")
         return
     codes = sorted(present["ts_code"].unique())
-    idx = pd.MultiIndex.from_product(
-        [codes, periods], names=["ts_code", "end_date"]
-    )
+    idx = pd.MultiIndex.from_product([codes, periods], names=["ts_code", "end_date"])
     target = idx.to_frame(index=False)
     earliest = present.groupby("ts_code")["end_date"].min()
     target["earliest"] = target["ts_code"].map(earliest)
@@ -51,15 +51,12 @@ def cmd_coverage(args: argparse.Namespace) -> None:
     missing_count = int(counts.get("missing", 0))
     exempt_count = int(counts.get("exempt", 0))
     effective_total = present_count + missing_count
-    coverage_rate = (
-        present_count / effective_total if effective_total else 1.0
-    )
+    coverage_rate = present_count / effective_total if effective_total else 1.0
     print(
-        f"覆盖股票 {len(codes)} 个，期末日 {len(periods)} 个；有效组合 {effective_total}"
+        f"覆盖股票 {len(codes)} 个，期末日 {len(periods)} 个；"
+        f"有效组合 {effective_total}"
     )
-    print(
-        f"已覆盖 {present_count}，缺口 {missing_count}，覆盖率 {coverage_rate:.2%}"
-    )
+    print(f"已覆盖 {present_count}，缺口 {missing_count}，覆盖率 {coverage_rate:.2%}")
     if exempt_count:
         print(f"自然缺失组合（上市前等）：{exempt_count}")
 
@@ -68,14 +65,14 @@ def cmd_coverage(args: argparse.Namespace) -> None:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         missing = target[target["status"] == "missing"][["ts_code", "end_date"]]
         if missing.empty:
-            summary = pd.DataFrame(columns=["ts_code", "missing_periods", "missing_count"])
+            summary = pd.DataFrame(
+                columns=["ts_code", "missing_periods", "missing_count"]
+            )
         else:
             summary = (
                 missing.groupby("ts_code")["end_date"]
                 .agg(
-                    missing_periods=lambda values: ";".join(
-                        sorted(values.astype(str))
-                    ),
+                    missing_periods=lambda values: ";".join(sorted(values.astype(str))),
                     missing_count="count",
                 )
                 .reset_index()

@@ -1,9 +1,12 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
-import tushare_a_fundamentals.downloader as downloader
+import tushare_a_fundamentals.storage as storage
 from tushare_a_fundamentals.downloader import write_parquet_dataset
+
+pytestmark = pytest.mark.unit
 
 
 def _read_partition(path: Path) -> pd.DataFrame:
@@ -77,7 +80,7 @@ def test_write_parquet_dataset_warns_on_read_failure(monkeypatch, tmp_path, caps
     def fail_read(path: str) -> object:
         raise OSError("boom")
 
-    monkeypatch.setattr(downloader.pq, "read_table", fail_read)
+    monkeypatch.setattr(storage.pq, "read_table", fail_read)
 
     df = pd.DataFrame(
         {

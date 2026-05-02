@@ -61,11 +61,12 @@ class PlainTicker:
         elif self.total >= 0:
             self.done = min(self.done, self.total)
         now = time.time()
-        if (
-            now - self.last_print >= self.every_sec
-            or (self.total > 0 and self.done >= self.total)
+        if now - self.last_print >= self.every_sec or (
+            self.total > 0 and self.done >= self.total
         ):
-            parts = [f"[..] {self.desc}: {self.done}/{self.total if self.total else '?'}"]
+            parts = [
+                f"[..] {self.desc}: {self.done}/{self.total if self.total else '?'}"
+            ]
             stats: list[str] = []
             if self.ok is not None:
                 stats.append(f"✓{self.ok}")
@@ -179,4 +180,3 @@ class ProgressManager:
             self.console.print(message)
         else:
             print(message)
-

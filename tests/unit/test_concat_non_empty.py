@@ -1,8 +1,11 @@
 import warnings
 
 import pandas as pd
+import pytest
 
-from tushare_a_fundamentals.common import _concat_non_empty
+from tushare_a_fundamentals.income_export import _concat_non_empty
+
+pytestmark = pytest.mark.unit
 
 
 def test_concat_non_empty_filters_all_na():

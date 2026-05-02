@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from tushare_a_fundamentals.common import _diff_to_single
+from tushare_a_fundamentals.income_export import _diff_to_single
 
 pytestmark = pytest.mark.unit
 

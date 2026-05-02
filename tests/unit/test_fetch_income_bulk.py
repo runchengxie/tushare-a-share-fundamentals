@@ -1,7 +1,8 @@
 import pandas as pd
 import pytest
 
-from tushare_a_fundamentals.common import fetch_income_bulk, normalize_fields
+from tushare_a_fundamentals.config import normalize_fields
+from tushare_a_fundamentals.legacy_income import fetch_income_bulk
 
 pytestmark = pytest.mark.unit
 
@@ -31,9 +32,14 @@ def test_fetch_income_bulk_multiple_report_types():
     pro = DummyPro()
     periods = ["20231231"]
     fields = "ts_code,ann_date,f_ann_date,end_date,report_type"
-    tables = fetch_income_bulk(
-        pro, periods=periods, mode="quarterly", fields=fields, report_types=[1, 6]
-    )
+    with pytest.warns(DeprecationWarning):
+        tables = fetch_income_bulk(
+            pro,
+            periods=periods,
+            mode="quarterly",
+            fields=fields,
+            report_types=[1, 6],
+        )
     assert pro.calls == [1, 6]
     assert pro.kwargs and pro.kwargs[0]["fields"] == fields
     assert set(tables["raw"]["report_type"]) == {1, 6}
@@ -42,9 +48,10 @@ def test_fetch_income_bulk_multiple_report_types():
 def test_fetch_income_bulk_skips_empty_fields():
     pro = DummyPro()
     periods = ["20231231"]
-    tables = fetch_income_bulk(
-        pro, periods=periods, mode="quarterly", fields=None, report_types=[1]
-    )
+    with pytest.warns(DeprecationWarning):
+        tables = fetch_income_bulk(
+            pro, periods=periods, mode="quarterly", fields=None, report_types=[1]
+        )
     assert pro.calls == [1]
     assert pro.kwargs and "fields" not in pro.kwargs[0]
     assert not tables["raw"].empty

@@ -2,12 +2,8 @@ import argparse
 import sys
 from argparse import Namespace
 
-from ..common import (
-    DEFAULT_FIELDS,
-    _periods_from_cfg as _periods_from_cfg_fn,
-    ensure_enough_credits as _ensure_enough_credits,
+from ..config import (
     eprint,
-    init_pro_api as _init_pro_api,
     load_yaml,
     merge_config,
     normalize_fields,
@@ -15,17 +11,25 @@ from ..common import (
 )
 from ..downloader import (
     DatasetRequest,
-    MarketDatasetDownloader as _MarketDatasetDownloader,
     parse_dataset_requests,
+)
+from ..downloader import (
+    MarketDatasetDownloader as _MarketDatasetDownloader,
+)
+from ..income_export import DEFAULT_FIELDS
+from ..periods import _periods_from_cfg as _periods_from_cfg_fn
+from ..tushare_client import (
+    ensure_enough_credits as _ensure_enough_credits,
+)
+from ..tushare_client import init_pro_api as _init_pro_api
+from ..workflows.download import (
+    DownloadExecutionError,
+    run_download_pipeline,
 )
 from .export import cmd_export
 
 # Backwards compatibility for tests that patch the downloader in this module.
 MarketDatasetDownloader = _MarketDatasetDownloader
-from ..workflows.download import (
-    DownloadExecutionError,
-    run_download_pipeline,
-)
 
 
 def _run_export(export_args: Namespace, strict: bool | None) -> None:
@@ -158,7 +162,10 @@ def cmd_download(args: argparse.Namespace) -> None:
             _provided(getattr(args, name, None)) for name in audit_flag_names
         )
         audit_window_missing = not (
-            cli_has_window or cfg_has_window or audit_cli_has_window or audit_cfg_has_window
+            cli_has_window
+            or cfg_has_window
+            or audit_cli_has_window
+            or audit_cfg_has_window
         )
     cfg_missing = not bool(cfg_file)
     recent_quarters_from_cli = getattr(args, "recent_quarters", None) is not None
@@ -324,9 +331,7 @@ def _apply_dividend_selection(
     if include_all:
         if dividend_list:
             return non_dividend + dividend_list, False
-        return non_dividend + [
-            _default_request_for(DIVIDEND_DATASET_NAME)
-        ], False
+        return non_dividend + [_default_request_for(DIVIDEND_DATASET_NAME)], False
 
     if dividend_list:
         return non_dividend + dividend_list, False
@@ -414,7 +419,8 @@ def _info_messages(
         )
     if cfg_missing and not explicit and not dividend_only:
         infos.append(
-            "提示：未找到配置文件，已按示例配置启用默认数据集（默认跳过 fina_audit 与 dividend）。"
+            "提示：未找到配置文件，已按示例配置启用默认数据集"
+            "（默认跳过 fina_audit 与 dividend）。"
         )
     return infos
 

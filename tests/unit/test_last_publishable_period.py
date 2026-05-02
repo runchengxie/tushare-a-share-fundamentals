@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from tushare_a_fundamentals.common import _periods_from_cfg, last_publishable_period
+from tushare_a_fundamentals.periods import _periods_from_cfg, last_publishable_period
 
 pytestmark = pytest.mark.unit
 
@@ -14,7 +14,7 @@ def test_last_publishable_period():
 
 def test_periods_from_cfg_trim_future(monkeypatch):
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common.last_publishable_period",
+        "tushare_a_fundamentals.periods.last_publishable_period",
         lambda today: "20250630",
     )
     cfg = {"since": "2025-01-01", "until": "2025-12-31"}
@@ -27,7 +27,7 @@ def test_periods_from_cfg_trim_future(monkeypatch):
 
 def test_periods_from_cfg_years_backfill(monkeypatch):
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common.last_publishable_period",
+        "tushare_a_fundamentals.periods.last_publishable_period",
         lambda today: "20250630",
     )
     periods = _periods_from_cfg({})
@@ -38,7 +38,7 @@ def test_periods_from_cfg_years_backfill(monkeypatch):
 
 def test_periods_from_cfg_quarters_backfill(monkeypatch):
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common.last_publishable_period",
+        "tushare_a_fundamentals.periods.last_publishable_period",
         lambda today: "20250630",
     )
     periods = _periods_from_cfg({"quarters": 4})
@@ -47,7 +47,7 @@ def test_periods_from_cfg_quarters_backfill(monkeypatch):
 
 def test_periods_from_cfg_years_allow_future(monkeypatch):
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common.last_publishable_period",
+        "tushare_a_fundamentals.periods.last_publishable_period",
         lambda today: "20250630",
     )
     captured: dict[str, int] = {}
@@ -57,7 +57,7 @@ def test_periods_from_cfg_years_allow_future(monkeypatch):
         return [f"P{i}" for i in range(count)]
 
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common.periods_by_quarters",
+        "tushare_a_fundamentals.periods.periods_by_quarters",
         fake_periods_by_quarters,
     )
     periods = _periods_from_cfg({"years": 1, "allow_future": True})
@@ -67,9 +67,10 @@ def test_periods_from_cfg_years_allow_future(monkeypatch):
 
 def test_periods_from_cfg_prefers_explicit_range(monkeypatch):
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common.last_publishable_period",
+        "tushare_a_fundamentals.periods.last_publishable_period",
         lambda today: "99991231",
     )
+
     def fail_quarters(count: int) -> list[str]:
         raise AssertionError("should not use quarters")
 
@@ -77,10 +78,10 @@ def test_periods_from_cfg_prefers_explicit_range(monkeypatch):
         raise AssertionError("should not backfill")
 
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common.periods_by_quarters", fail_quarters
+        "tushare_a_fundamentals.periods.periods_by_quarters", fail_quarters
     )
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common._backfill_periods", fail_backfill
+        "tushare_a_fundamentals.periods._backfill_periods", fail_backfill
     )
 
     called: dict[str, tuple[str, str | None]] = {}
@@ -90,7 +91,7 @@ def test_periods_from_cfg_prefers_explicit_range(monkeypatch):
         return ["RANGE"]
 
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common._periods_from_range", fake_from_range
+        "tushare_a_fundamentals.periods.periods_from_range", fake_from_range
     )
 
     periods = _periods_from_cfg(
@@ -109,7 +110,7 @@ def test_periods_from_cfg_prefers_explicit_range(monkeypatch):
 
 def test_periods_from_cfg_quarters_override_years(monkeypatch):
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common.last_publishable_period",
+        "tushare_a_fundamentals.periods.last_publishable_period",
         lambda today: "20251231",
     )
     calls: dict[str, int] = {}
@@ -119,14 +120,14 @@ def test_periods_from_cfg_quarters_override_years(monkeypatch):
         return [f"Q{i}" for i in range(count)]
 
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common.periods_by_quarters", fake_quarters
+        "tushare_a_fundamentals.periods.periods_by_quarters", fake_quarters
     )
 
     def fail_backfill(anchor: str, count: int) -> list[str]:
         raise AssertionError("should not backfill")
 
     monkeypatch.setattr(
-        "tushare_a_fundamentals.common._backfill_periods", fail_backfill
+        "tushare_a_fundamentals.periods._backfill_periods", fail_backfill
     )
 
     periods = _periods_from_cfg({"quarters": 3, "years": 10, "allow_future": True})

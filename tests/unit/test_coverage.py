@@ -1,8 +1,11 @@
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 from tushare_a_fundamentals.commands.coverage import cmd_coverage
+
+pytestmark = pytest.mark.unit
 
 
 def _prepare_dataset(root):

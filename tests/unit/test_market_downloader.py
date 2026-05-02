@@ -238,6 +238,7 @@ def test_market_downloader_per_stock(tmp_path, monkeypatch):
     assert bucket["last_period:ts=000001.SZ"] == "20201231"
     assert bucket["last_period:ts=000002.SZ"] == "20201231"
 
+
 def test_failure_log_written_and_cleared(tmp_path):
     pro = DummyPro()
     dl = MarketDatasetDownloader(

@@ -2,35 +2,40 @@ from __future__ import annotations
 
 import calendar
 import hashlib
-import re
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import pandas as pd
 
-from .common import (
-    RetryExhaustedError,
-    RetryPolicy,
-    _concat_non_empty,
-    call_with_retry,
-    ensure_ts_code,
-    last_publishable_period,
-)
 from .dataset_specs import DATASET_SPECS, DatasetSpec
+from .downloader_helpers import (
+    PeriodCombination,
+    build_period_combinations,
+    expected_fields,
+    extract_truncation_metadata,
+    list_date_to_period,
+    max_period,
+    normalize_code_list,
+    normalize_period,
+    resolve_report_types,
+    resolve_type_values,
+    summarize_params,
+)
+from .income_export import _concat_non_empty, ensure_ts_code
+from .periods import last_publishable_period
+from .progress import ProgressManager
+from .retry import RetryExhaustedError, RetryPolicy, call_with_retry
+from .state_backend import JsonStateBackend, StateBackend
 from .storage import (
-    ensure_dir,
     merge_and_deduplicate,
     write_failure_report,
     write_parquet_dataset,
-    pq,
 )
-from .state_backend import JsonStateBackend, StateBackend
-from .progress import ProgressManager
 
 DATE_FMT = "%Y%m%d"
 MAX_PAGES = 200
@@ -149,38 +154,6 @@ class RateLimiter:
         """Backward-compatible alias for ``acquire``."""
 
         self.acquire()
-
-
-@dataclass(frozen=True)
-class PeriodCombination:
-    report_type: Optional[int] = None
-    type_value: Optional[str] = None
-
-    def state_key(self, base: str, spec: DatasetSpec) -> str:
-        parts = [base]
-        if self.report_type is not None:
-            parts.append(f"rt={self.report_type}")
-        if spec.type_param and self.type_value is not None:
-            parts.append(f"{spec.type_param}={self.type_value}")
-        return ":".join(parts)
-
-    def as_params(self, spec: DatasetSpec) -> Dict[str, Any]:
-        params: Dict[str, Any] = {}
-        if self.report_type is not None:
-            params["report_type"] = self.report_type
-        if spec.type_param and self.type_value is not None:
-            params[spec.type_param] = self.type_value
-        return params
-
-    def describe(self, spec: DatasetSpec) -> str:
-        parts: List[str] = []
-        if self.report_type is not None:
-            parts.append(f"report_type={self.report_type}")
-        if spec.type_param and self.type_value is not None:
-            parts.append(f"{spec.type_param}={self.type_value}")
-        if not parts:
-            return "默认组合"
-        return ", ".join(parts)
 
 
 @dataclass
@@ -470,9 +443,7 @@ class MarketDatasetDownloader:
         period_end = self._bounded_period_end(end_date)
         accumulator = DownloadAccumulator()
         write_ok = True
-        stock_task = self._start_task(
-            f"{spec.name} 股票循环", len(stock_df.index)
-        )
+        stock_task = self._start_task(f"{spec.name} 股票循环", len(stock_df.index))
         for _, row in stock_df.iterrows():
             ts_code = str(row.get("ts_code", "")).strip()
             if not ts_code:
@@ -645,12 +616,11 @@ class MarketDatasetDownloader:
                 failure_seen = True
                 failed_periods.append(period_value)
                 self._log(
-                    f"警告：{spec.name} {combo_desc} 针对 {ts_code} 在 {period_value} 抓取失败，请稍后手动排查"
+                    f"警告：{spec.name} {combo_desc} 针对 {ts_code} "
+                    f"在 {period_value} 抓取失败，请稍后手动排查"
                 )
                 fail_count += 1
-                self.progress.advance(
-                    combo_task, 1, ok=success_count, fail=fail_count
-                )
+                self.progress.advance(combo_task, 1, ok=success_count, fail=fail_count)
                 continue
             success_count += 1
             if not failure_seen:
@@ -804,9 +774,7 @@ class MarketDatasetDownloader:
                 year_col,
                 group_keys=spec.dedup_group_keys or spec.primary_keys,
             )
-        failure_entries = [
-            entry for entry in window_records.values() if len(entry) > 1
-        ]
+        failure_entries = [entry for entry in window_records.values() if len(entry) > 1]
         write_failure_report(self.data_dir, spec.name, "windows", failure_entries)
         if write_ok and last_contiguous is not None:
             self.state.set(spec.name, state_key, last_contiguous)
@@ -858,44 +826,19 @@ class MarketDatasetDownloader:
         ts_code: Optional[str] = None,
         window: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        if df is None or not hasattr(df, "attrs"):
-            return None
-        if not df.attrs.get("page_limit_hit"):
-            return None
-        metadata: Dict[str, Any] = {"page_limit_hit": True}
-        if period is not None:
-            metadata["period"] = period
-        if ts_code is not None:
-            metadata["ts_code"] = ts_code
-        if window is not None:
-            metadata["window"] = window
-        pagination = df.attrs.get("pagination_info")
-        if isinstance(pagination, dict):
-            metadata["pagination"] = pagination
-        else:
-            metadata.setdefault("pagination", {})
-        return metadata
+        return extract_truncation_metadata(
+            df, period=period, ts_code=ts_code, window=window
+        )
 
     def _summarize_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        summary: Dict[str, Any] = {}
-        for key, value in sorted(params.items()):
-            if "token" in key.lower():
-                continue
-            if isinstance(value, (str, int, float, bool)) or value is None:
-                summary[key] = value
-            elif isinstance(value, (list, tuple, set)):
-                summary[key] = ",".join(sorted(str(v) for v in value))
-            else:
-                summary[key] = str(value)
-        return summary
+        return summarize_params(params)
 
     def _expected_fields(self, api_name: str, fields: str) -> Set[str]:
         key = (api_name, fields)
         cached = self._field_cache.get(key)
         if cached is not None:
             return cached
-        items = [part.strip() for part in re.split(r"[\n,]", fields) if part.strip()]
-        normalized = {item for item in items}
+        normalized = expected_fields(fields)
         self._field_cache[key] = normalized
         return normalized
 
@@ -919,32 +862,12 @@ class MarketDatasetDownloader:
     def _resolve_report_types(
         self, spec: DatasetSpec, options: Dict[str, Any]
     ) -> Sequence[int]:
-        if "report_types" in options:
-            vals = options["report_types"]
-            if isinstance(vals, str):
-                parts = [p.strip() for p in vals.split(",") if p.strip()]
-                return [int(p) for p in parts]
-            if isinstance(vals, Sequence):
-                return [int(v) for v in vals]
-        if spec.report_types:
-            return list(spec.report_types)
-        return []
+        return resolve_report_types(spec, options)
 
     def _resolve_type_values(
         self, spec: DatasetSpec, options: Dict[str, Any]
     ) -> Sequence[str]:
-        if spec.type_param is None:
-            return []
-        if spec.type_param in options:
-            vals = options[spec.type_param]
-            if isinstance(vals, str):
-                parts = [p.strip() for p in vals.split(",") if p.strip()]
-                return parts
-            if isinstance(vals, Sequence):
-                return [str(v) for v in vals]
-        if spec.type_values:
-            return list(spec.type_values)
-        return []
+        return resolve_type_values(spec, options)
 
     def _resolve_stock_universe(self, options: Dict[str, Any]) -> pd.DataFrame:
         explicit = self._normalize_code_list(options.get("ts_codes"))
@@ -959,23 +882,7 @@ class MarketDatasetDownloader:
         return pd.DataFrame(columns=["ts_code", "earliest_period"])
 
     def _normalize_code_list(self, raw: Any) -> List[str]:
-        if raw is None:
-            return []
-        items: List[str]
-        if isinstance(raw, str):
-            candidates = raw.replace("\n", ",").split(",")
-            items = [c.strip() for c in candidates if c.strip()]
-        elif isinstance(raw, Sequence) and not isinstance(raw, (bytes, bytearray)):
-            items = [str(c).strip() for c in raw if str(c).strip()]
-        else:
-            items = [str(raw).strip()]
-        seen: Set[str] = set()
-        unique: List[str] = []
-        for item in items:
-            if item and item not in seen:
-                seen.add(item)
-                unique.append(item)
-        return unique
+        return normalize_code_list(raw)
 
     def _load_codes_from_fact(self) -> Optional[pd.DataFrame]:
         root = Path(self.data_dir) / "dataset=fact_income_cum"
@@ -1020,58 +927,28 @@ class MarketDatasetDownloader:
         return frame[["ts_code", "earliest_period"]]
 
     def _normalize_period(self, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            return None
-        if len(text) == 10 and text[4] == "-" and text[7] == "-":
-            text = text.replace("-", "")
-        if len(text) != 8:
-            return None
-        return text
+        return normalize_period(value)
 
     def _max_period(self, value: Optional[str], floor: Optional[str]) -> Optional[str]:
-        if value is None:
-            return floor
-        if floor is None:
-            return value
-        return max(value, floor)
+        return max_period(value, floor)
 
     def _list_date_to_period(self, raw: Any) -> Optional[str]:
-        if raw is None:
-            return None
-        text = str(raw).strip()
-        if not text:
-            return None
-        normalized = self._normalize_period(text)
-        if normalized is None:
-            return None
-        try:
-            day = datetime.strptime(normalized, DATE_FMT).date()
-        except ValueError:
-            return None
-        return quarter_end_for(day).strftime(DATE_FMT)
+        return list_date_to_period(raw, quarter_end_for)
 
     def _build_period_combinations(
         self,
         report_types: Sequence[int],
         type_values: Sequence[str],
     ) -> List[PeriodCombination]:
-        rt_values = list(report_types) if report_types else [None]
-        type_opts = list(type_values) if type_values else [None]
-        return [
-            PeriodCombination(report_type=rt, type_value=tv)
-            for rt in rt_values
-            for tv in type_opts
-        ]
+        return build_period_combinations(report_types, type_values)
 
     def _resolve_method(self, spec: DatasetSpec) -> Tuple[Any, str, bool]:
         if self.use_vip and spec.vip_api:
             if self.vip_pro is None:
                 if not self._warned_vip_fallback:
                     self._log(
-                        "警告：未检测到可用的 VIP token，已回落至普通接口，可能触发权限错误"
+                        "警告：未检测到可用的 VIP token，"
+                        "已回落至普通接口，可能触发权限错误"
                     )
                     self._warned_vip_fallback = True
                 client = self.pro
@@ -1123,7 +1000,8 @@ class MarketDatasetDownloader:
                 outcome.failed_periods.append(period_value)
                 combo_desc = combo.describe(spec)
                 self._log(
-                    f"警告：{spec.name} {combo_desc} 在 {period_value} 抓取失败，请稍后手动排查"
+                    f"警告：{spec.name} {combo_desc} 在 {period_value} "
+                    "抓取失败，请稍后手动排查"
                 )
                 fail_count += 1
                 self.progress.advance(
@@ -1140,9 +1018,7 @@ class MarketDatasetDownloader:
                     outcome.truncated_periods.append(info)
                 if not df.empty:
                     outcome.frames.append(df)
-            self.progress.advance(
-                progress_task, 1, ok=success_count, fail=fail_count
-            )
+            self.progress.advance(progress_task, 1, ok=success_count, fail=fail_count)
         return outcome
 
     def _fetch_period(
@@ -1224,7 +1100,8 @@ class MarketDatasetDownloader:
 
         if not getattr(self, "_warned_dividend_range_failure", False):
             self._log(
-                "提示：dividend 接口不支持按区间抓取 ann_date，将改用逐日抓取（耗时较长）。"
+                "提示：dividend 接口不支持按区间抓取 ann_date，"
+                "将改用逐日抓取（耗时较长）。"
             )
             self._warned_dividend_range_failure = True
 
@@ -1257,7 +1134,8 @@ class MarketDatasetDownloader:
             covered_dates.update(
                 value
                 for value in (
-                    self._normalize_calendar_value(v) for v in day_df.get("ann_date", [])
+                    self._normalize_calendar_value(v)
+                    for v in day_df.get("ann_date", [])
                 )
                 if value
             )
@@ -1349,7 +1227,8 @@ class MarketDatasetDownloader:
                 ).digest()
                 if signature in seen_signatures:
                     self._log(
-                        f"警告：调用 {api_name} 分页出现重复结果（offset={offset}），已提前终止"
+                        f"警告：调用 {api_name} 分页出现重复结果"
+                        f"（offset={offset}），已提前终止"
                     )
                     break
                 seen_signatures.add(signature)
@@ -1390,6 +1269,7 @@ class MarketDatasetDownloader:
         except RetryExhaustedError as exc:
             self._log(f"警告：调用 {api_name} 失败：{exc.last_exception}")
             return None
+
 
 def parse_dataset_requests(raw: Any) -> List[DatasetRequest]:
     if raw is None:

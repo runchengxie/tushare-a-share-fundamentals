@@ -5,16 +5,13 @@ from __future__ import annotations
 import os
 from argparse import Namespace
 from dataclasses import dataclass
-from typing import Callable, Iterable, Optional, Sequence
+from typing import Callable, Optional, Sequence
 
-from ..common import (
-    _periods_from_cfg,
-    ensure_enough_credits,
-    eprint,
-    init_pro_api,
-)
-from ..downloader import DatasetRequest, MarketDatasetDownloader, parse_yyyymmdd
 from ..commands.export import cmd_export
+from ..config import eprint
+from ..downloader import DatasetRequest, MarketDatasetDownloader, parse_yyyymmdd
+from ..periods import _periods_from_cfg
+from ..tushare_client import ensure_enough_credits, init_pro_api
 
 
 @dataclass
@@ -108,7 +105,8 @@ def run_download_pipeline(
         if not ctx.vip_tokens:
             raise DownloadExecutionError(
                 "未检测到满足 VIP 门槛（≥5000 积分）的 token。"
-                "如需批量抓取，请为至少一个 token 提供 5000 积分或设置 --use-vip=false。"
+                "如需批量抓取，请为至少一个 token 提供 5000 积分"
+                "或设置 --use-vip=false。"
             )
         ensure_fn(ctx.vip_or_default())
     data_dir = cfg.get("data_dir") or "data"

@@ -30,7 +30,9 @@ def test_state_show_json(tmp_path, capsys):
     state_file.parent.mkdir(parents=True)
     state_file.write_text(json.dumps({"income": {"last_period": "20231231"}}), "utf-8")
 
-    args = make_args(action="show", backend="json", state_path=None, data_dir=str(data_dir))
+    args = make_args(
+        action="show", backend="json", state_path=None, data_dir=str(data_dir)
+    )
     state_cmd.cmd_state(args)
 
     captured = capsys.readouterr()
@@ -55,6 +57,24 @@ def test_state_clear_json(tmp_path):
 
     payload = json.loads(state_file.read_text("utf-8"))
     assert payload == {}
+
+
+def test_state_set_json(tmp_path, capsys):
+    data_dir = tmp_path / "data"
+    args = make_args(
+        action="set",
+        backend="json",
+        data_dir=str(data_dir),
+        dataset="income",
+        key="last_period",
+        value="20231231",
+    )
+    state_cmd.cmd_state(args)
+    capsys.readouterr()
+
+    state_file = data_dir / "_state" / "state.json"
+    payload = json.loads(state_file.read_text("utf-8"))
+    assert payload == {"income": {"last_period": "20231231"}}
 
 
 def test_state_ls_failures(tmp_path, capsys):
@@ -97,6 +117,35 @@ def test_state_set_sqlite(tmp_path, capsys):
     captured = capsys.readouterr()
     assert "kv_state" in captured.out
     assert "20231231" in captured.out
+
+
+def test_state_clear_sqlite_key(tmp_path, capsys):
+    db_path = tmp_path / "state.db"
+    args_set = make_args(
+        action="set",
+        backend="sqlite",
+        state_path=str(db_path),
+        dataset="income",
+        key="last_period",
+        value="20231231",
+    )
+    state_cmd.cmd_state(args_set)
+    capsys.readouterr()
+
+    args_clear = make_args(
+        action="clear",
+        backend="sqlite",
+        state_path=str(db_path),
+        dataset="income",
+        key="last_period",
+    )
+    state_cmd.cmd_state(args_clear)
+    capsys.readouterr()
+
+    args_show = make_args(action="show", backend="sqlite", state_path=str(db_path))
+    state_cmd.cmd_state(args_show)
+    captured = capsys.readouterr()
+    assert "20231231" not in captured.out
 
 
 def test_state_backend_auto_prefers_sqlite(monkeypatch, tmp_path):

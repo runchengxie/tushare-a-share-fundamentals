@@ -710,7 +710,7 @@ wheels = [
 ]
 
 [[package]]
-name = "tushare-a-fundamentals"
+name = "tushare-a-share-fundamentals"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [

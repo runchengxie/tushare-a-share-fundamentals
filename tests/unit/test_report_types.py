@@ -1,6 +1,6 @@
 import pytest
 
-from tushare_a_fundamentals.common import parse_report_types
+from tushare_a_fundamentals.config import parse_report_types
 
 pytestmark = pytest.mark.unit
 

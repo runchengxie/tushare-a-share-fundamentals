@@ -6,7 +6,10 @@ import pandas as pd
 import pytest
 
 import tushare_a_fundamentals.common as common
-from tushare_a_fundamentals.common import ensure_ts_code, merge_config
+from tushare_a_fundamentals.config import merge_config
+from tushare_a_fundamentals.income_export import ensure_ts_code
+
+pytestmark = pytest.mark.unit
 
 
 def test_merge_config_applies_priorities():

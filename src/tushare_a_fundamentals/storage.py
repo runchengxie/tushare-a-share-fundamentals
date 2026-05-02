@@ -131,9 +131,7 @@ def write_parquet_dataset(  # noqa: C901
         if not existing.empty:
             existing = existing.reindex(columns=all_cols)
             combined = pd.concat([existing, partition_new], ignore_index=True)
-            deduped = merge_and_deduplicate(
-                [combined], group_keys=group_keys or ()
-            )
+            deduped = merge_and_deduplicate([combined], group_keys=group_keys or ())
             if deduped is None:
                 continue
             combined = deduped
@@ -193,4 +191,3 @@ __all__ = [
     "write_failure_report",
     "write_parquet_dataset",
 ]
-

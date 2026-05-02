@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Utility script to verify TuShare tokens via the user quota endpoint."""
+
 import os
 from pathlib import Path
 from typing import Iterable, Literal, TypedDict
 
 import tushare as ts
-
 
 ENV_KEYS = ("TUSHARE_TOKEN", "TUSHARE_TOKEN_2")
 
@@ -39,7 +39,7 @@ TokenCheckResult = TokenCheckSuccess | TokenCheckFailure
 def _env_paths_to_try() -> Iterable[Path]:
     """Yield plausible locations of a .env file for convenience."""
     script_dir = Path(__file__).resolve().parent
-    # Start with CWD (useful when running via poetry/pytest), then walk up from script dir
+    # Start with CWD, then walk up from the script directory.
     yield Path.cwd() / ".env"
     for parent in [script_dir, *script_dir.parents]:
         yield parent / ".env"
@@ -67,7 +67,11 @@ def check_token(env_key: str) -> TokenCheckResult:
     """Return the outcome of verifying the TuShare token stored under ``env_key``."""
     token = os.getenv(env_key)
     if not token:
-        return {"env_key": env_key, "ok": False, "message": f"环境变量 {env_key} 未设置。"}
+        return {
+            "env_key": env_key,
+            "ok": False,
+            "message": f"环境变量 {env_key} 未设置。",
+        }
 
     try:
         pro = ts.pro_api(token=token)
@@ -80,9 +84,13 @@ def check_token(env_key: str) -> TokenCheckResult:
         }
 
     if df is None:
-        return {"env_key": env_key, "ok": False, "message": f"TuShare 返回空对象，无法验证 {env_key}。"}
+        return {
+            "env_key": env_key,
+            "ok": False,
+            "message": f"TuShare 返回空对象，无法验证 {env_key}。",
+        }
 
-    # ``pro.user`` returns multiple rows when several quotas are expiring; serialize for readability.
+    # ``pro.user`` may return multiple expiring quota rows.
     return {
         "env_key": env_key,
         "user_id": str(df.iloc[0]["user_id"]) if not df.empty else "<未知>",

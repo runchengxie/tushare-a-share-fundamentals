@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import tushare_a_fundamentals.common as common
-from tushare_a_fundamentals.common import ProPool
+import tushare_a_fundamentals.tushare_client as tushare_client
+from tushare_a_fundamentals.tushare_client import ProPool
 
 pytestmark = pytest.mark.unit
 
@@ -29,8 +29,8 @@ def test_pro_pool_round_robin_balances_clients(monkeypatch):
 
     fake_time = SimpleNamespace(time=lambda: 0.0, sleep=lambda _wait: None)
 
-    monkeypatch.setattr(common, "_TokenClient", DummyClient)
-    monkeypatch.setattr(common, "time", fake_time)
+    monkeypatch.setattr(tushare_client, "_TokenClient", DummyClient)
+    monkeypatch.setattr(tushare_client, "time", fake_time)
 
     pool = ProPool(["tok-a", "tok-b", "tok-c"], per_token_rate=5)
 
@@ -54,7 +54,7 @@ def test_pro_pool_set_rate_propagates_to_clients(monkeypatch):
         def set_rate(self, value: int) -> None:
             rate_history[self.token].append(value)
 
-    monkeypatch.setattr(common, "_TokenClient", DummyClient)
+    monkeypatch.setattr(tushare_client, "_TokenClient", DummyClient)
 
     pool = ProPool(["tok-a", "tok-b"], per_token_rate=12)
 
@@ -79,7 +79,7 @@ def test_pro_pool_getattr_falls_back_to_query(monkeypatch):
         def set_rate(self, value: int) -> None:
             pass
 
-    monkeypatch.setattr(common, "_TokenClient", DummyClient)
+    monkeypatch.setattr(tushare_client, "_TokenClient", DummyClient)
 
     pool = ProPool(["tok-x"], per_token_rate=1)
 

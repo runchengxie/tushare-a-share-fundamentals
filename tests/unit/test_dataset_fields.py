@@ -3,7 +3,6 @@ import pytest
 from tushare_a_fundamentals.dataset_specs import DATASET_SPECS
 from tushare_a_fundamentals.meta.doc_fields import DOC_FIELDS
 
-
 pytestmark = pytest.mark.unit
 
 
@@ -17,4 +16,3 @@ def test_dataset_specs_use_doc_fields():
 def test_income_fields_include_continued_net_profit():
     income_fields = DOC_FIELDS["income"]
     assert "continued_net_profit" in income_fields
-

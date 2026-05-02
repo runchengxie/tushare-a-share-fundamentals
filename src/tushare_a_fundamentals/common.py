@@ -6,17 +6,17 @@ import sys
 import threading
 import time
 from collections import deque
-from heapq import heappop, heappush
-from itertools import count
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from functools import partial
+from heapq import heappop, heappush
+from itertools import count
 from typing import (
     Any,
     Callable,
-    Dict,
     Deque,
+    Dict,
     List,
     Literal,
     Optional,
@@ -35,6 +35,12 @@ from tushare_a_fundamentals.transforms.deduplicate import (
 from tushare_a_fundamentals.transforms.deduplicate import (
     select_latest as _tx_select_latest,
 )
+
+# Compatibility module.
+#
+# New code should import focused helpers from config.py, periods.py, retry.py,
+# tushare_client.py, income_export.py, and legacy_income.py. This module keeps
+# older imports working during the compatibility window.
 
 # Do not auto-load .env on import to avoid polluting test environments.
 # To load .env locally, use direnv or export variables in the shell.
@@ -263,7 +269,9 @@ class ProPool:
                 next_ready, _, client = heappop(self._availability)
                 if next_ready > attempt_time:
                     sleep_for = next_ready - attempt_time
-                    heappush(self._availability, (next_ready, next(self._sequence), client))
+                    heappush(
+                        self._availability, (next_ready, next(self._sequence), client)
+                    )
                     client = None
             if client is None:
                 time.sleep(max(sleep_for, 0.05))
@@ -272,7 +280,9 @@ class ProPool:
             acquired, wait = client.try_acquire(now)
             next_available = now if wait <= 0 else now + wait
             with self._lock:
-                heappush(self._availability, (next_available, next(self._sequence), client))
+                heappush(
+                    self._availability, (next_available, next(self._sequence), client)
+                )
             if acquired:
                 return client
 
@@ -403,7 +413,9 @@ def _format_token_log(
         notes.append("积分检测失败")
     elif not detect_vip and info.token not in manual_vip:
         notes.append("未启用自动检测")
-    message = f"  - token#{index} {_mask_token(info.token)}：{label}（积分：{credit_text}）"
+    message = (
+        f"  - token#{index} {_mask_token(info.token)}：{label}（积分：{credit_text}）"
+    )
     if notes:
         message += "，" + "，".join(notes)
     return message
@@ -429,7 +441,8 @@ def _derive_vip_tokens(
         vip_tokens = [info.token for info in infos if info.is_vip]
         return vip_tokens, warnings
     warnings.append(
-        "警告：未启用自动检测且未指定 TUSHARE_VIP_TOKENS，已默认第一个 token 作为 VIP，请确认其积分 ≥5000。"
+        "警告：未启用自动检测且未指定 TUSHARE_VIP_TOKENS，"
+        "已默认第一个 token 作为 VIP，请确认其积分 ≥5000。"
     )
     return list(tokens[:1]), warnings
 
@@ -460,9 +473,7 @@ def init_pro_api(token: Optional[str]) -> ProContext:  # noqa: C901
     elif not detect_vip and len(tokens) > 1:
         print("提示：已禁用自动检测 VIP token（TUSHARE_DETECT_VIP=false）。")
 
-    token_infos = [
-        _evaluate_token_info(tok, manual_vip, detect_vip) for tok in tokens
-    ]
+    token_infos = [_evaluate_token_info(tok, manual_vip, detect_vip) for tok in tokens]
     for idx, info in enumerate(token_infos, start=1):
         print(_format_token_log(idx, info, manual_vip, detect_vip))
 
@@ -472,10 +483,7 @@ def init_pro_api(token: Optional[str]) -> ProContext:  # noqa: C901
     for warn in derived_warnings:
         print(warn)
 
-    if not vip_tokens and len(tokens) == 1 and detect_vip:
-        print("警告：无法检测 token 积分，已默认将唯一 token 视为 VIP。")
-        vip_tokens = tokens.copy()
-    elif not vip_tokens and detect_vip:
+    if not vip_tokens and detect_vip:
         print(
             "警告：未检测到满足 VIP 门槛的 token，use_vip=true 时将无法批量抓取，"
             "请确认至少一个 token 拥有 ≥5000 积分或设置 TUSHARE_VIP_TOKENS。"
@@ -506,7 +514,12 @@ def init_pro_api(token: Optional[str]) -> ProContext:  # noqa: C901
 
     primary_for_global = vip_tokens[0] if vip_tokens else tokens[0]
     _GLOBAL_TOKEN = primary_for_global
-    return ProContext(any_client=any_client, vip_client=vip_client, tokens=tokens, vip_tokens=vip_tokens)
+    return ProContext(
+        any_client=any_client,
+        vip_client=vip_client,
+        tokens=tokens,
+        vip_tokens=vip_tokens,
+    )
 
 
 def periods_for_mode_by_years(years: int, mode: str) -> List[str]:
@@ -710,7 +723,8 @@ def call_with_retry(
                 label = description or "调用"
                 eprint(
                     "警告："
-                    f"{label} 异常，{wait_seconds:.1f}s 后重试（第 {retries}/{used_policy.max_retries} 次）：{exc}"
+                    f"{label} 异常，{wait_seconds:.1f}s 后重试"
+                    f"（第 {retries}/{used_policy.max_retries} 次）：{exc}"
                 )
             sleep_func(wait_seconds)
 
@@ -753,11 +767,10 @@ def _available_credits(pro, *, token: str | None = None) -> float | None:
 
     if token is None:
         tok = (
-            _GLOBAL_TOKEN
-            or os.getenv("TUSHARE_TOKEN")
-            or os.getenv("TUSHARE_API_KEY")
+            _GLOBAL_TOKEN or os.getenv("TUSHARE_TOKEN") or os.getenv("TUSHARE_API_KEY")
         )
         if tok:
+
             def _fallback() -> Any:
                 import tushare as ts
 
@@ -821,10 +834,7 @@ def ensure_enough_credits(pro, required: int = 5000) -> None:
         return
     total = _available_credits(pro)
     detected = "0" if total is None else repr(total)
-    eprint(
-        "错误：全市场批量需要至少 "
-        f"{required} 积分。（检测到总积分：{detected}）"
-    )
+    eprint(f"错误：全市场批量需要至少 {required} 积分。（检测到总积分：{detected}）")
     sys.exit(2)
 
 
@@ -992,7 +1002,8 @@ def fetch_income_bulk(
                     eprint(
                         "警告："
                         f"income_vip 期末 {per} report_type {rt} 异常，"
-                        f"{wait_seconds:.1f}s 后重试（第 {attempt}/{policy.max_retries} 次）：{exc}"
+                        f"{wait_seconds:.1f}s 后重试"
+                        f"（第 {attempt}/{policy.max_retries} 次）：{exc}"
                     )
 
                 df = call_with_retry(

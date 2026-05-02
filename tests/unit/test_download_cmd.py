@@ -28,7 +28,9 @@ def test_cmd_download_multi_dataset_uses_configured_years(monkeypatch, tmp_path)
         any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"]
     )
     monkeypatch.setattr(download_cmd, "init_pro_api", lambda token: dummy_ctx)
-    monkeypatch.setattr(download_cmd, "ensure_enough_credits", lambda pro, required=5000: None)
+    monkeypatch.setattr(
+        download_cmd, "ensure_enough_credits", lambda pro, required=5000: None
+    )
     monkeypatch.setattr(download_cmd, "load_yaml", lambda path: {})
 
     args = Namespace(
@@ -89,7 +91,9 @@ def test_cmd_download_invalid_progress_falls_back(monkeypatch, tmp_path):
         any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"]
     )
     monkeypatch.setattr(download_cmd, "init_pro_api", lambda token: dummy_ctx)
-    monkeypatch.setattr(download_cmd, "ensure_enough_credits", lambda pro, required=5000: None)
+    monkeypatch.setattr(
+        download_cmd, "ensure_enough_credits", lambda pro, required=5000: None
+    )
     monkeypatch.setattr(download_cmd, "load_yaml", lambda path: {})
 
     args = Namespace(
@@ -153,7 +157,9 @@ def test_cmd_download_audit_only_prefers_audit_quarters(monkeypatch, tmp_path):
         any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"]
     )
     monkeypatch.setattr(download_cmd, "init_pro_api", lambda token: dummy_ctx)
-    monkeypatch.setattr(download_cmd, "ensure_enough_credits", lambda pro, required=5000: None)
+    monkeypatch.setattr(
+        download_cmd, "ensure_enough_credits", lambda pro, required=5000: None
+    )
     monkeypatch.setattr(
         download_cmd,
         "load_yaml",
@@ -245,7 +251,9 @@ def test_cmd_download_audit_only_falls_back_to_one_quarter(monkeypatch, tmp_path
         any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"]
     )
     monkeypatch.setattr(download_cmd, "init_pro_api", lambda token: dummy_ctx)
-    monkeypatch.setattr(download_cmd, "ensure_enough_credits", lambda pro, required=5000: None)
+    monkeypatch.setattr(
+        download_cmd, "ensure_enough_credits", lambda pro, required=5000: None
+    )
     monkeypatch.setattr(download_cmd, "load_yaml", lambda path: None)
 
     args = Namespace(
@@ -309,7 +317,9 @@ def test_cmd_download_audit_only_respects_explicit_max_retries(monkeypatch, tmp_
         any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"]
     )
     monkeypatch.setattr(download_cmd, "init_pro_api", lambda token: dummy_ctx)
-    monkeypatch.setattr(download_cmd, "ensure_enough_credits", lambda pro, required=5000: None)
+    monkeypatch.setattr(
+        download_cmd, "ensure_enough_credits", lambda pro, required=5000: None
+    )
     monkeypatch.setattr(
         download_cmd,
         "load_yaml",
@@ -373,7 +383,9 @@ def test_cmd_download_default_skips_dividend(monkeypatch, tmp_path):
         any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"]
     )
     monkeypatch.setattr(download_cmd, "init_pro_api", lambda token: dummy_ctx)
-    monkeypatch.setattr(download_cmd, "ensure_enough_credits", lambda pro, required=5000: None)
+    monkeypatch.setattr(
+        download_cmd, "ensure_enough_credits", lambda pro, required=5000: None
+    )
     monkeypatch.setattr(download_cmd, "load_yaml", lambda path: None)
 
     args = Namespace(
@@ -435,7 +447,9 @@ def test_cmd_download_dividend_only(monkeypatch, tmp_path):
         any_client=object(), vip_client=object(), tokens=["tok"], vip_tokens=["tok"]
     )
     monkeypatch.setattr(download_cmd, "init_pro_api", lambda token: dummy_ctx)
-    monkeypatch.setattr(download_cmd, "ensure_enough_credits", lambda pro, required=5000: None)
+    monkeypatch.setattr(
+        download_cmd, "ensure_enough_credits", lambda pro, required=5000: None
+    )
     monkeypatch.setattr(download_cmd, "load_yaml", lambda path: None)
 
     args = Namespace(

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from tushare_a_fundamentals.common import (
+from tushare_a_fundamentals.tushare_client import (
     TokenInfo,
     _format_token_log,
     _has_enough_credits,

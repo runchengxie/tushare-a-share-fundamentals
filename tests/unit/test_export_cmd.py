@@ -1,4 +1,5 @@
 import argparse
+import gzip
 from pathlib import Path
 
 import pandas as pd
@@ -154,6 +155,79 @@ def test_cmd_export_conflicting_flags_raises(tmp_path):
     args = _default_args(tmp_path)
     args.no_income = True
     args.no_flat = True
+
+    with pytest.raises(SystemExit) as excinfo:
+        expmod.cmd_export(args)
+
+    assert excinfo.value.code == 2
+
+
+def test_cmd_export_flat_explicit_list_and_exclude(tmp_path):
+    data_root = tmp_path / "data"
+    balance = pd.DataFrame(
+        {
+            "ts_code": ["000001.SZ"],
+            "end_date": ["20230331"],
+            "total_assets": [100.0],
+        }
+    )
+    cashflow = pd.DataFrame(
+        {
+            "ts_code": ["000001.SZ"],
+            "end_date": ["20230331"],
+            "net_cash": [12.0],
+        }
+    )
+    _make_dataset(data_root, "balancesheet", "2023", balance)
+    _make_dataset(data_root, "cashflow", "2023", cashflow)
+
+    args = _default_args(data_root)
+    args.flat_datasets = "balancesheet,cashflow"
+    args.flat_exclude = "cashflow"
+    expmod.cmd_export(args)
+
+    csv_dir = data_root / "csv"
+    assert (csv_dir / "balancesheet.csv").exists()
+    assert not (csv_dir / "cashflow.csv").exists()
+
+
+def test_cmd_export_split_by_year(tmp_path):
+    data_root = tmp_path / "data"
+    frame_2023 = pd.DataFrame({"ts_code": ["000001.SZ"], "end_date": ["20230331"]})
+    frame_2024 = pd.DataFrame({"ts_code": ["000001.SZ"], "end_date": ["20240331"]})
+    _make_dataset(data_root, "balancesheet", "2023", frame_2023)
+    _make_dataset(data_root, "balancesheet", "2024", frame_2024)
+
+    args = _default_args(data_root)
+    args.flat_datasets = "balancesheet"
+    args.split_by = "year"
+    expmod.cmd_export(args)
+
+    csv_dir = data_root / "csv"
+    assert (csv_dir / "balancesheet_2023.csv").exists()
+    assert (csv_dir / "balancesheet_2024.csv").exists()
+
+
+def test_cmd_export_gzip_csv(tmp_path):
+    data_root = tmp_path / "data"
+    frame = pd.DataFrame({"ts_code": ["000001.SZ"], "end_date": ["20230331"]})
+    _make_dataset(data_root, "balancesheet", "2023", frame)
+
+    args = _default_args(data_root)
+    args.flat_datasets = "balancesheet"
+    args.gzip = True
+    expmod.cmd_export(args)
+
+    out_path = data_root / "csv" / "balancesheet.csv.gz"
+    assert out_path.exists()
+    with gzip.open(out_path, "rt", encoding="utf-8") as fh:
+        assert "ts_code" in fh.readline()
+
+
+def test_cmd_export_gzip_rejects_parquet(tmp_path):
+    args = _default_args(tmp_path)
+    args.out_format = "parquet"
+    args.gzip = True
 
     with pytest.raises(SystemExit) as excinfo:
         expmod.cmd_export(args)
