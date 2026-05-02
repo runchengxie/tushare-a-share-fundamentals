@@ -2,8 +2,8 @@
 
 本目录保存两类文档：
 
-- 项目级文档：说明本项目如何组织 dataset、CLI 输出、状态和字段生成。
-- TuShare API 文档：保留接口字段表，供 `tools/update_dataset_fields.py` 生成字段映射。
+- 项目级文档：位于 `docs/` 根目录，说明本项目如何组织 dataset、CLI 输出、状态和字段生成。
+- TuShare API 参考资料：位于 `docs/api_references/tushare/`，保留外部接口字段表，供 `tools/update_dataset_fields.py` 生成字段映射。
 
 ## 项目文档
 
@@ -11,7 +11,7 @@
 
 ## 字段生成
 
-`tools/update_dataset_fields.py` 会解析本目录下的 TuShare API 文档，并生成：
+`tools/update_dataset_fields.py` 会解析 `docs/api_references/tushare/` 下的 TuShare API 参考资料，并生成：
 
 ```text
 src/tushare_a_fundamentals/meta/doc_fields.py
@@ -37,17 +37,17 @@ uv run tools/update_dataset_fields.py --check
 - `project_tools/export_repo_source.py`：导出源码快照，供离线审阅使用。
 - `project_tools/package.sh`：维护者打包辅助脚本。
 
-## TuShare API 文档
+## TuShare API 参考资料
 
 | 项目 dataset | 文档 |
 | --- | --- |
-| `income` | [income_statement_tushare_api_doc.md](income_statement_tushare_api_doc.md) |
-| `balancesheet` | [balance_sheet_tushare_api_doc.md](balance_sheet_tushare_api_doc.md) |
-| `cashflow` | [cash_flow_statement_tushare_api_doc.md](cash_flow_statement_tushare_api_doc.md) |
-| `forecast` | [earnings_preannouncement_tushare_api_doc.md](earnings_preannouncement_tushare_api_doc.md) |
-| `express` | [preliminary_unaudited_results_tushare_api_doc.md](preliminary_unaudited_results_tushare_api_doc.md) |
-| `dividend` | [dividend_info_tushare_api_doc.md](dividend_info_tushare_api_doc.md) |
-| `fina_indicator` | [financial_ratios_tushare_api_doc.md](financial_ratios_tushare_api_doc.md) |
-| `fina_audit` | [audit_opinion_tushare_api_doc.md](audit_opinion_tushare_api_doc.md) |
-| `fina_mainbz` | [revenue_breakdown_tushare_api_doc.md](revenue_breakdown_tushare_api_doc.md) |
-| `disclosure_date` | [release_date_tushare_api_doc.md](release_date_tushare_api_doc.md) |
+| `income` | [api_references/tushare/income.md](api_references/tushare/income.md) |
+| `balancesheet` | [api_references/tushare/balancesheet.md](api_references/tushare/balancesheet.md) |
+| `cashflow` | [api_references/tushare/cashflow.md](api_references/tushare/cashflow.md) |
+| `forecast` | [api_references/tushare/forecast.md](api_references/tushare/forecast.md) |
+| `express` | [api_references/tushare/express.md](api_references/tushare/express.md) |
+| `dividend` | [api_references/tushare/dividend.md](api_references/tushare/dividend.md) |
+| `fina_indicator` | [api_references/tushare/fina_indicator.md](api_references/tushare/fina_indicator.md) |
+| `fina_audit` | [api_references/tushare/fina_audit.md](api_references/tushare/fina_audit.md) |
+| `fina_mainbz` | [api_references/tushare/fina_mainbz.md](api_references/tushare/fina_mainbz.md) |
+| `disclosure_date` | [api_references/tushare/disclosure_date.md](api_references/tushare/disclosure_date.md) |

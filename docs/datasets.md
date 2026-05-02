@@ -4,16 +4,16 @@
 
 | dataset | TuShare API | VIP API | 默认常规下载 | 特殊抓取方式 | 主键 / 去重键 | API 文档 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `income` | `income` | `income_vip` | 是 | 按季度 period 抓取；默认 `report_type=1` | `ts_code,end_date,report_type` | `income_statement_tushare_api_doc.md` |
-| `balancesheet` | `balancesheet` | `balancesheet_vip` | 是 | 按季度 period 抓取；默认 `report_type=1` | `ts_code,end_date,report_type` | `balance_sheet_tushare_api_doc.md` |
-| `cashflow` | `cashflow` | `cashflow_vip` | 是 | 按季度 period 抓取；默认 `report_type=1` | `ts_code,end_date,report_type` | `cash_flow_statement_tushare_api_doc.md` |
-| `forecast` | `forecast` | `forecast_vip` | 是 | 按季度 period 抓取；`use_vip=false` 时跳过 | `ts_code,end_date,type` | `earnings_preannouncement_tushare_api_doc.md` |
-| `express` | `express` | `express_vip` | 是 | 按季度 period 抓取 | `ts_code,end_date` | `preliminary_unaudited_results_tushare_api_doc.md` |
-| `dividend` | `dividend` | 无 | 否 | 逐日按 `ann_date` 抓取；用 `--dividend-only` 单独运行 | `ts_code,ann_date,record_date,ex_date,imp_ann_date` | `dividend_info_tushare_api_doc.md` |
-| `fina_indicator` | `fina_indicator` | `fina_indicator_vip` | 是 | 按季度 period 抓取；`use_vip=false` 时跳过 | `ts_code,end_date` | `financial_ratios_tushare_api_doc.md` |
-| `fina_audit` | `fina_audit` | 无 | 否 | 逐股按 period 抓取；用 `--audit-only` 或 `--with-audit` 启用 | `ts_code,end_date` | `audit_opinion_tushare_api_doc.md` |
-| `fina_mainbz` | `fina_mainbz` | `fina_mainbz_vip` | 是 | 按季度 period 和 `type` 抓取；默认 `P,D,I` | `ts_code,end_date,bz_item,type` | `revenue_breakdown_tushare_api_doc.md` |
-| `disclosure_date` | `disclosure_date` | 无 | 是 | 按季度 end_date 抓取 | `ts_code,end_date` | `release_date_tushare_api_doc.md` |
+| `income` | `income` | `income_vip` | 是 | 按季度 period 抓取；默认 `report_type=1` | `ts_code,end_date,report_type` | [api_references/tushare/income.md](api_references/tushare/income.md) |
+| `balancesheet` | `balancesheet` | `balancesheet_vip` | 是 | 按季度 period 抓取；默认 `report_type=1` | `ts_code,end_date,report_type` | [api_references/tushare/balancesheet.md](api_references/tushare/balancesheet.md) |
+| `cashflow` | `cashflow` | `cashflow_vip` | 是 | 按季度 period 抓取；默认 `report_type=1` | `ts_code,end_date,report_type` | [api_references/tushare/cashflow.md](api_references/tushare/cashflow.md) |
+| `forecast` | `forecast` | `forecast_vip` | 是 | 按季度 period 抓取；`use_vip=false` 时跳过 | `ts_code,end_date,type` | [api_references/tushare/forecast.md](api_references/tushare/forecast.md) |
+| `express` | `express` | `express_vip` | 是 | 按季度 period 抓取 | `ts_code,end_date` | [api_references/tushare/express.md](api_references/tushare/express.md) |
+| `dividend` | `dividend` | 无 | 否 | 逐日按 `ann_date` 抓取；用 `--dividend-only` 单独运行 | `ts_code,ann_date,record_date,ex_date,imp_ann_date` | [api_references/tushare/dividend.md](api_references/tushare/dividend.md) |
+| `fina_indicator` | `fina_indicator` | `fina_indicator_vip` | 是 | 按季度 period 抓取；`use_vip=false` 时跳过 | `ts_code,end_date` | [api_references/tushare/fina_indicator.md](api_references/tushare/fina_indicator.md) |
+| `fina_audit` | `fina_audit` | 无 | 否 | 逐股按 period 抓取；用 `--audit-only` 或 `--with-audit` 启用 | `ts_code,end_date` | [api_references/tushare/fina_audit.md](api_references/tushare/fina_audit.md) |
+| `fina_mainbz` | `fina_mainbz` | `fina_mainbz_vip` | 是 | 按季度 period 和 `type` 抓取；默认 `P,D,I` | `ts_code,end_date,bz_item,type` | [api_references/tushare/fina_mainbz.md](api_references/tushare/fina_mainbz.md) |
+| `disclosure_date` | `disclosure_date` | 无 | 是 | 按季度 end_date 抓取 | `ts_code,end_date` | [api_references/tushare/disclosure_date.md](api_references/tushare/disclosure_date.md) |
 
 ## 默认与显式启用
 

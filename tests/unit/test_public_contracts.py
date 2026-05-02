@@ -96,7 +96,7 @@ def test_generated_doc_fields_match_committed_docs():
 
     generated = {}
     for doc_name, dataset in module.DOC_DATASET_MAP.items():
-        doc_path = module.DOCS_DIR / doc_name
+        doc_path = module.API_DOCS_DIR / doc_name
         fields = module.extract_output_fields(
             doc_path.read_text(encoding="utf-8").splitlines()
         )

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate dataset field lists by parsing bundled TuShare API docs.
 
-This script scans the Markdown files under ``docs/`` and extracts the output
-field tables so we can keep our default ``fields`` selections in sync with the
-official documentation without hand-maintaining long comma-separated strings.
+This script scans the TuShare Markdown references under
+``docs/api_references/tushare/`` and extracts the output field tables so we can
+keep our default ``fields`` selections in sync with the official documentation
+without hand-maintaining long comma-separated strings.
 
 Usage
 -----
@@ -23,22 +24,22 @@ from pathlib import Path
 from typing import Iterable, List, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCS_DIR = ROOT / "docs"
+API_DOCS_DIR = ROOT / "docs" / "api_references" / "tushare"
 OUTPUT_PATH = ROOT / "src" / "tushare_a_fundamentals" / "meta" / "doc_fields.py"
 
 # Map documentation filenames to DatasetSpec names.
 DOC_DATASET_MAP = OrderedDict(
     [
-        ("income_statement_tushare_api_doc.md", "income"),
-        ("balance_sheet_tushare_api_doc.md", "balancesheet"),
-        ("cash_flow_statement_tushare_api_doc.md", "cashflow"),
-        ("earnings_preannouncement_tushare_api_doc.md", "forecast"),
-        ("preliminary_unaudited_results_tushare_api_doc.md", "express"),
-        ("dividend_info_tushare_api_doc.md", "dividend"),
-        ("financial_ratios_tushare_api_doc.md", "fina_indicator"),
-        ("audit_opinion_tushare_api_doc.md", "fina_audit"),
-        ("revenue_breakdown_tushare_api_doc.md", "fina_mainbz"),
-        ("release_date_tushare_api_doc.md", "disclosure_date"),
+        ("income.md", "income"),
+        ("balancesheet.md", "balancesheet"),
+        ("cashflow.md", "cashflow"),
+        ("forecast.md", "forecast"),
+        ("express.md", "express"),
+        ("dividend.md", "dividend"),
+        ("fina_indicator.md", "fina_indicator"),
+        ("fina_audit.md", "fina_audit"),
+        ("fina_mainbz.md", "fina_mainbz"),
+        ("disclosure_date.md", "disclosure_date"),
     ]
 )
 
@@ -126,7 +127,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     mapping: OrderedDict[str, List[str]] = OrderedDict()
     for doc_name, dataset in DOC_DATASET_MAP.items():
-        doc_path = DOCS_DIR / doc_name
+        doc_path = API_DOCS_DIR / doc_name
         if not doc_path.exists():
             parser.error(f"文档不存在：{doc_path}")
         try:

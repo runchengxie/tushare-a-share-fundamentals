@@ -3,6 +3,7 @@
 ## Project Structure & Module Organization
 - Library code and CLI live in `src/tushare_a_fundamentals/` (e.g., `cli.py`, `commands/download.py`, `downloader.py`).
 - Configuration templates sit at the repo root (`config.example.yaml`, `.env.example`, `.envrc.example`).
+- Project documentation lives in `docs/`; copied TuShare API references live under `docs/api_references/tushare/`.
 - Tests are split into `tests/unit/` and `tests/integration/`; use markers defined in `pyproject.toml`.
 - Repeatable project tools live in `tools/`. Maintainer diagnostics and packaging helpers live in `project_tools/`. Data artifacts default to `out/` (legacy) or `data/` (multi-dataset mode).
 
