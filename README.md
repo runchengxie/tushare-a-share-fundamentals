@@ -1,359 +1,110 @@
-# Tushare 基本面数据批量下载器
+# TuShare A 股基本面数据下载器
 
-本项目提供命令行工具，用于批量抓取 A 股上市公司基本面数据。
+本项目提供 `funda` 命令，用于批量下载 A 股上市公司基本面数据，按数据集（dataset）写入 parquet 缓存，并可导出 CSV 或 parquet 文件。
 
-> 项目默认面向全 A 市场批量下载，建议使用 5000 积分以上的 TuShare VIP 账户。非 VIP 模式会跳过仅支持 VIP 批量抓取的数据集；项目未实现这些接口的逐股 fallback。
+项目默认面向全 A 市场批量下载，建议使用 5000 积分以上的 TuShare VIP 账户。`use_vip=false` 时会跳过仅支持 VIP 批量抓取的数据集；项目当前没有实现这些接口的逐股回退抓取。
 
-## 先决条件
+## 功能概览
 
-* Python 版本需在 3.10–3.12 之间，建议通过 [`uv`](https://docs.astral.sh/uv/) 或 `pip` 管理依赖
-* 拥有有效的 TuShare 凭证，建议准备至少 5000 积分的 VIP 账户以避免限速
-* 具备可写磁盘空间用于缓存 parquet/CSV 数据，以及稳定的网络环境
-* （可选）安装 `direnv` 以便自动加载 `.env` 和本地虚拟环境
+- 支持 10 类 TuShare 基本面数据集：三张财务报表、业绩预告、业绩快报、分红、财务指标、审计意见、主营业务构成、财报披露计划。
+- 默认下载近 10 年季度数据，并滚动刷新最近 4 个季度。
+- 输出目录默认为 `data/<dataset>/year=YYYY/data.parquet`。
+- 增量状态默认为 JSON 文件：`data/_state/state.json`。
+- 失败清单写入 `data/_state/failures/`，便于后续排查和补跑。
+- 可在下载后运行 `funda export`，生成平面表和 `income` 的年度、季度累计、单季口径导出。
 
-完成 `pip install -e .` 或 `uv sync` 后，可执行 `funda --help` 验证 CLI 是否已正确安装
+## 适用前提
 
-* [利润表](https://tushare.pro/document/2?doc_id=33)
+- Python 3.10 到 3.12。
+- 有效的 TuShare token。全市场批量抓取建议使用 5000 积分以上的 VIP token。
+- 可写磁盘空间和稳定网络。
+- 可选：安装 `direnv`，自动加载 `.env` 和本地虚拟环境。
 
-* [资产负债表](https://tushare.pro/document/2?doc_id=36)
-
-* [现金流量表](https://tushare.pro/document/2?doc_id=44)
-
-* [业绩预告](https://tushare.pro/document/2?doc_id=45)
-
-* [业绩快报](https://tushare.pro/document/2?doc_id=46)
-
-* [分红送股](https://tushare.pro/document/2?doc_id=103)
-
-* [财务指标数据](https://tushare.pro/document/2?doc_id=79)
-
-* [财务审计意见](https://tushare.pro/document/2?doc_id=80)
-
-* [主营业务构成](https://tushare.pro/document/2?doc_id=81)
-
-* [财报披露计划](https://tushare.pro/document/2?doc_id=162)
-
-提示：所有命令行输出与错误信息均为中文；代码实现为英文。
-
-## 最小可行步骤
+## 安装
 
 ```bash
-cp .env.example .env        # 填好 TUSHARE_TOKEN
-funda download              # 批量下载常用数据（默认跳过 dividend/fina_audit，不导出 CSV）
-funda download --dividend-only # dividend 逐日抓取，建议单独运行
-funda download --audit-only    # fina_audit 逐股抓取，建议单独运行
-funda export                # 导出已下载的数据
-```
-
-### 提示
-
-* 缺少 `config.yml/config.yaml` 时会自动使用默认参数；日志会提示可以复制模板来自定义。
-
-* 默认下载近 10 年数据，约 40 个季度。
-
-* dividend 接口需要逐日轮询，默认不随 `funda download` 运行。可用 `funda download --dividend-only` 单独下载。
-
-* 财务审计意见需要逐只股票抓取，耗时较长。`funda download --audit-only` 默认只下载最近 1 个季度。可用 `--year 1`、`--quarters 2` 或 `config.yaml` 调整窗口。
-
-* 若接受较长运行时间，可用 `funda download --with-audit` 在常规下载中追加审计意见。
-
-### 多数据集批量下载
-
-`funda download` 支持直接针对多个数据集批量抓取：
-
-```bash
-funda download --datasets income balancesheet cashflow forecast express \
-  fina_indicator fina_audit fina_mainbz disclosure_date \
-  --use-vip --data-dir data --since 2010-01-01
-```
-
-dividend 数据需单独执行 `funda download --dividend-only`，以免常规批量任务长时间占用资源。
-
-要长期保存增量游标，可在配置文件中启用：
-
-```yaml
-datasets:
-  - name: income            # 利润表
-    report_types: [1]       # 报表类型：合并报表
-  - name: balancesheet      # 资产负债表
-    report_types: [1]       # 报表类型：合并报表
-  - name: cashflow          # 现金流量表
-    report_types: [1]       # 报表类型：合并报表
-  - name: forecast          # 业绩预告
-  - name: express           # 业绩快报
-  # dividend 数据需单独执行 `funda download --dividend-only`（逐日抓取耗时较长）
-  - name: fina_indicator    # 财务指标数据
-  - name: fina_audit        # 财务审计意见
-  - name: fina_mainbz       # 主营业务构成
-    type: ["P", "D", "I"]   # 按产品、领域、行业
-  - name: disclosure_date   # 财报披露计划
-data_dir: "data"
-use_vip: true               # 只有 Tushare VIP 版的 token 才支持批量下载
-max_per_minute: 90
-max_retries: 3
-recent_quarters: 4          # 刷新最近的季度数 (建议 2-4 覆盖常见改期)
-```
-
-运行后输出位于 `data/<dataset>/year=YYYY/part-*.parquet`。增量状态默认写入 `data/_state/state.json`，并滚动刷新最近 `recent_quarters` 个季度。
-
-默认只写 parquet 缓存，不自动导出 CSV。启用 `--export` 或 `export_enabled: true` 后，下载完成会执行导出流程。若设置 `export_kinds: annual,single,cumulative`，income 会额外生成对应口径；其他数据集按平面表导出。
-
-注意：若需统一产出目录，可在 `download`、`coverage`、`export` 命令中同时显式指定 `--data-dir`／`--dataset-root` 指向同一路径（如 `data`），避免历史目录造成混淆。
-
-## 可选附加功能
-
-1. 检查缓存数据是否完整：`funda coverage`
-
-   * 默认读取 `data/`。如使用自定义目录，可通过 `--dataset-root` 指定。
-
-2. 在已经有缓存数据的情况下，重新导出 CSV 或改写格式：`funda export`
-
-   * 默认读取 `data/`。可用 `--dataset-root` 与 `--out-dir` 将输入/输出统一到自定义目录（例如 `data/` 与 `data/export`）。
-
-3. 查看/维护增量状态与失败清单：`funda state show|clear|set|ls-failures`
-
-### 常用命令速查
-
-| 命令 | 作用 |
-| --- | --- |
-| `funda download [选项]` | 抓取并缓存指定数据集，支持增量/全量下载与自动导出 |
-| `funda download --dividend-only` | 独立下载 dividend 数据集（逐日抓取、耗时较长） |
-| `funda download --with-audit` | 在常规批量下载的基础上连同审计意见一并抓取 |
-| `funda export [选项]` | 将缓存的 parquet 转换为 annual/single/cumulative CSV |
-| `funda coverage [选项]` | 检查数据缺口并生成覆盖矩阵或缺口清单 |
-| `funda state show` | 查看当前增量状态与失败记录位置 |
-| `pytest [-m unit|integration]` | 运行测试套件，确认代码与下载流程可用 |
-
-### 进度展示
-
-下载和导出都可能需要较长时间，默认会根据终端能力自动选择进度输出：
-
-```bash
-# 默认 auto：TTY 下显示 Rich 进度条，重定向/CI 时退化为纯文本节奏提示
-funda download --progress auto
-
-# 固定使用 Rich 进度条或强制纯文本/关闭进度
-funda download --progress rich
-funda download --progress plain
-funda download --progress none
-
-# 导出命令同样支持 --progress
-funda export --progress plain
-```
-
-在进度条模式下，命令会展示任务总数、成功/失败计数和预计剩余时间；纯文本模式则每隔约 1.5 秒输出一次累计进度，兼容日志采集与重定向场景。
-
-### 状态后端与 CLI 限制
-
-* 默认状态后端：
-
-  * JSON：若未显式指定，会将状态写入 `<data_dir>/_state/state.json`。多数据集模式下 `data_dir` 默认为 `data`。
-
-  * SQLite：当仓库根目录存在 `meta/state.db` 时，`--backend auto` 会自动切换为 SQLite；也可手动通过 `--backend sqlite --state-path meta/state.db` 指定。
-
-* 自定义路径：任一后端均可通过 `--state-path` 覆盖默认位置。指定 `.db` 后缀时会强制使用 SQLite，其余文件视为 JSON。
-
-* 状态操作：`funda state` 支持 `show`、`clear`、`set`、`ls-failures`。JSON 后端写入 `<data_dir>/_state/state.json`。SQLite 后端的 `set` 会写入 `kv_state` 表。失败清单始终位于 `<data_dir>/_state/failures/`。
-
-> ### 备注
->
-> 默认窗口为近 10 年，即最近约 40 个季度。可用 `--year 5` 下载近 5 年，也可用 `--quarters N` 直接指定季度数。配置文件中的 `years`、`quarters` 与命令行选项含义一致。
-
-## 使用流程指南
-
-### 配置
-
-* `config.yml` 或 `config.yaml`（根目录）：CLI 行为（模式、时间范围、输出目录、字段选择等）。
-
-  * 初次使用：从模板复制一份并按需修改：`cp config.example.yaml config.yml`
-
-  * 若两者都存在，程序会拒绝继续并要求只保留一个；若均不存在，会打印提示并使用内建默认值。
-
-* `.env`（本地）：环境变量文件，至少包含 Tushare Token。
-
-  * 初次使用：从模板复制并填入 token：`cp .env.example .env`
-
-  * 说明：支持以下变量：
-
-    * `TUSHARE_TOKEN`：主凭证，必填。
-
-    * `TUSHARE_TOKEN_2`：如需配置第二个 TuShare 凭证以实现轮询调用，可选填。
-
-    * `TUSHARE_VIP_TOKENS`：可选。逗号分隔的 token 列表，用于显式指定哪些凭证用于 VIP 接口轮询。未设置时将根据积分（≥5000）自动识别。
-
-    * `TUSHARE_DETECT_VIP`：可选。设为 `false`/`0` 可禁用自动识别 VIP 凭证；禁用后若未指定 `TUSHARE_VIP_TOKENS`，默认仅第一个 token 用于 VIP 调用。
-
-    * `TUSHARE_API_KEY`：旧变量名。若设置且 `TUSHARE_TOKEN` 留空，会自动映射为主凭证。
-
-  * 程序会通过 python-dotenv 自动读取 `.env`，或从 shell 环境变量读取（变量名同上）。
-
-  * 若配置了多个 token，程序会在启动时打印积分检测结果，仅对满足门槛的 token 使用 VIP 接口。未检测到合格凭证且 `--use-vip` 为真时会直接报错退出，避免运行中途触发权限异常。
-
-* `.envrc`（本地，可选）：开发环境自动化脚本（需安装 direnv）。
-
-  * 初次使用：从模板复制并授权：`cp .envrc.example .envrc && direnv allow`
-
-  * 说明：会自动加载 `.env`，监听关键文件变更，并创建/启用本地虚拟环境 `.venv`（优先使用 uv）。
-
-### 安装
-
-本项目基于 Python 3.10—3.12 运行（`>=3.10,<3.13`，详见 `pyproject.toml`），其余依赖也在其中声明。
-
-```bash
-# 使用 pip 可编辑安装
-pip install -e .
-
-# 或使用 uv 安装项目与开发依赖
 uv sync
 ```
 
-### 使用方法
-
-#### 数据下载
+也可以使用 pip 可编辑安装：
 
 ```bash
-# 下载全市场最近 10 年（默认）
+pip install -e .
+```
+
+安装后检查 CLI：
+
+```bash
+funda --help
+```
+
+## 快速开始
+
+```bash
+export TUSHARE_TOKEN="your-token"
+
 funda download
+funda export --dataset-root data --out-dir data/export
 ```
 
-按日期范围下载（按季度粒度自动计算 period）：
+如果使用 `.env` 文件，请配合 `direnv` 加载：
 
 ```bash
-funda download --since 2010-01-01  # 当不注明--until时，默认截止至今天
-funda download --since 2010-01-01 --until 2019-12-31
+cp .env.example .env
+cp .envrc.example .envrc
+direnv allow
 ```
 
-下载模式：
-
-* 默认补缺 + 滚动刷新：补齐历史缺口，并额外重抓最近 4 个季度（可用 `--recent-quarters` 调整）。
-
-* 仅补缺：将 `--recent-quarters` 设为 0（或配置 `recent_quarters: 0`），跳过滚动刷新。
-
-参数说明：
-
-* 时间窗口优先级：`--since/--until` > `--quarters` > `--years`（默认 10）。所有下载均按季度粒度（0331/0630/0930/1231）。`--years N` 会自动折算为自“最近一个可披露季度”向前回溯的 `N×4` 个季度。
-
-* 提供 `--since`（可选 `--until`）时优先使用日期范围；
-
-* `--datasets income balancesheet ...`：直接在命令行启用多数据集模式；与配置项 `datasets` 互补。
-
-* `--data-dir DIR`：多数据集输出目录（默认 `data`）。状态与失败列表存储在该目录下的 `_state/`。
-
-* `--use-vip`：显式启用 VIP 接口（默认启用）；`--max-per-minute N` 控制限速窗口（默认 90）。如需禁用 VIP，可在配置文件中设置 `use_vip: false`。
-
-* `--report-types 1,6`：指定报表 `report_type`（逗号或空格分隔），默认仅下载 `1`（合并报表）。
-
-* `--recent-quarters N`：滚动刷新最近 N 个季度（默认 4，设为 0 表示纯补缺）。配置文件中的同名字段共享该默认值。
-
-* `--max-retries N`：接口异常时最多重试 N 次（默认 3，`--audit-only` 模式下默认 5，设为 0 表示只尝试一次）。
-
-* `--state-path PATH`：覆盖增量状态文件位置；JSON 默认 `<data_dir>/_state/state.json`，SQLite 后端默认 `meta/state.db`。
-
-* 默认会依据披露截止日裁掉未来季度，如需强制包含可加 `--allow-future`；
-
-* `--no-export` / `--export`：显式关闭或开启下载结束后的导出流程（默认仅缓存 parquet，不触发导出）；`--export-format`、`--export-out-dir`、`--export-kinds`、`--export-years`、`--export-annual-strategy` 用于自定义导出行为。
-
-* 每次下载如遇失败 period/window，会在 `data/_state/failures/` 下生成对应 JSON 清单，方便后续优先补齐。
-
-* `--strict-export`：导出失败时返回非零状态码（默认仅记录警告并继续）。
-
-全量下载（建议）：
-
-* 通过日期范围或年数覆盖全量历史。例如：
-
-    ```bash
-    # 从 2000 年至今按季度抓取
-    funda download --since 2000-01-01
-    
-    # 或按近 30 年抓取
-    funda download --years 30
-    ```
-
-说明：下载口径固定为“按季度期末日的累计（YTD）值”，默认会生成按年份分区的 parquet 数据集（如 `income`、`balancesheet` 等），不会自动导出 CSV；需要年度/季度/单季 CSV 或其它数据集的扁平化表格时，请在下载完成后运行 `funda export`。
-
-#### 数据完整性检测/可视化覆盖情况
+`funda download` 默认下载常用数据集，跳过耗时较长的 `dividend` 和 `fina_audit`，并且只写 parquet 缓存。需要下载这两个数据集时建议单独执行：
 
 ```bash
-funda coverage
+funda download --dividend-only
+funda download --audit-only
 ```
 
-默认会先输出覆盖率摘要，再按 `--by` 生成矩阵（数值约定：`1=覆盖`、`0=缺口`、`-1=豁免`）。追加 `--csv path/to/gaps.csv` 可导出缺口清单。数据集根目录默认为 `data`，可用 `--dataset-root` 指定。`--years` 可调整年份窗口（默认近 10 年）。
+## 常用命令
 
-说明：
+| 任务 | 命令 |
+| --- | --- |
+| 下载默认数据集 | `funda download` |
+| 指定时间范围 | `funda download --since 2010-01-01 --until 2024-12-31` |
+| 下载指定数据集 | `funda download --datasets income balancesheet cashflow` |
+| 下载分红数据 | `funda download --dividend-only` |
+| 下载审计意见 | `funda download --audit-only` |
+| 下载完成后立即导出 | `funda download --export --export-kinds annual,single,cumulative` |
+| 导出已有缓存 | `funda export --dataset-root data --out-dir data/export` |
+| 查看状态 | `funda state show --backend json --data-dir data` |
+| 查看失败清单 | `funda state ls-failures --data-dir data` |
+| 查看帮助 | `funda download --help` |
 
-* single 由累计值差分得到单季；
+## 默认行为
 
-* cumulative 可直接导出季度累计值；
+- 时间窗口：近 10 年，约 40 个季度；命令行优先级为 `--since/--until`、`--quarters`、`--years`。
+- 刷新策略：补齐历史缺口，并重抓最近 `recent_quarters` 个季度；默认值为 4。
+- VIP 接口：默认启用。未检测到 5000 积分以上 token 时，常规批量下载会报错退出。
+- 常规下载：默认包含 `income`、`balancesheet`、`cashflow`、`forecast`、`express`、`fina_indicator`、`fina_mainbz`、`disclosure_date`。
+- 单独下载：`dividend` 逐日抓取，`fina_audit` 逐股抓取，默认不随常规下载运行。
+- 导出：默认不自动导出；使用 `--export` 或单独运行 `funda export`。
+- 状态：下载流程目前使用 JSON 状态文件；SQLite 后端只用于 `funda state` 的查看和维护操作。
+- 旧版 `--raw-only` 与 `--build-only` 参数已不属于当前 CLI。
 
-* annual 可选 `cumulative`（12-31）或 `sum4`（四季相加）；
+## 文档
 
-#### 数据导出成csv
+- [使用流程](docs/usage.md)：下载、覆盖率检查、进度展示和常用命令。
+- [配置说明](docs/configuration.md)：`config.yml`、`.env`、token 和导出配置。
+- [数据集说明](docs/datasets.md)：数据集、TuShare API、主键、去重键和抓取粒度。
+- [导出说明](docs/export.md)：平面导出、`income` 派生口径、压缩和按年拆分。
+- [状态与失败清单](docs/state.md)：JSON 状态、SQLite 维护后端和失败记录。
+- [开发说明](docs/development.md)：测试、字段生成和维护脚本。
 
-一般来说，默认情况下，`funda download` 只负责抓取数据并写入 parquet 缓存。如需生成 CSV，可在缓存就绪后执行 `funda export`，构建年度（`annual`）/季度累计（`cumulative`）/单季（`single`）口径，并将其与其余数据集一并导出为平面 CSV。
-
-* `dataset=fact_income_cum/year=YYYY/*.parquet`（最新快照）
-
-* `dataset=inventory_income/periods.parquet`（已有数据的季度清单）
-
-随后可用 `export` 构建 annual / single / cumulative 导出：
-
-```bash
-funda export --kinds annual,single,cumulative \\
-  --annual-strategy cumulative \\
-  --dataset-root data --out-format csv --out-dir data/export
-```
-
-同样默认读取 `data` 目录下的数据集，并导出最近 10 年（若在 `download` 阶段未指定 `--export-years` 则默认沿用下载窗口）。若手动指定的窗口大于缓存中已有的季度范围，CLI 会提示并仅导出当前目录下已构建的数据。可通过 `--dataset-root`（示例中切换到 `data/`）、`--years` 或 `--out-format` 参数微调。
-
-导出的结果统一使用 `ts_code` 作为证券主键，并按 `ts_code`、`end_date` 排序。
-
-### 旧版目录说明
-
-* 历史流程沿用 `out/` 目录作为默认输入/输出；如需复刻旧目录结构，可在命令中显式设置 `--dataset-root out` 或 `--out-dir out`。
-* 旧版 `--raw-only` 与 `--build-only` 参数已不属于当前 CLI。当前推荐流程是先运行 `funda download` 写入 parquet 缓存，再运行 `funda export` 构建导出文件。
-
-## 常见问题
-
-* CLI运行帮助
-
-    ```bash
-    funda download --help
-    ```
-
-* 字段漂移导致读失败？新增列应设为 nullable，读取时使用统一 schema 合并。
-
-## 数据格式
-
-### 利润表 / 资产负债表 / 现金流量表
-
-1. TuShare 的三张财务报表提供 12 种 `report_type`。本项目默认下载 `1`，即合并报表。可在 `config.yaml` 中设置 `report_types`，或在命令行使用 `--report-types 6` 下载母公司报表。
-
-2. 若配置的报表类型与已有缓存不一致，命令会给出提示。确认后可按新配置重新下载或导出。
-
-| 代码 | 类型                 | 说明                                             |
-| :--- | :------------------- | :----------------------------------------------- |
-| 1    | 合并报表             | 上市公司最新报表（默认）                         |
-| 2    | 单季合并             | 单一季度的合并报表                               |
-| 3    | 调整单季合并表       | 调整后的单季合并报表（如果有）                   |
-| 4    | 调整合并报表         | 本年度公布上年同期的财务报表数据，报告期为上年度 |
-| 5    | 调整前合并报表       | 数据发生变更，将原数据进行保留，即调整前的原数据 |
-| 6    | 母公司报表           | 该公司母公司的财务报表数据                       |
-| 7    | 母公司单季表         | 母公司的单季度表                                 |
-| 8    | 母公司调整单季表     | 母公司调整后的单季表                             |
-| 9    | 母公司调整表         | 该公司母公司的本年度公布上年同期的财务报表数据   |
-| 10   | 母公司调整前报表     | 母公司调整之前的原始财务报表数据                 |
-| 11   | 母公司调整前合并报表 | 母公司调整之前合并报表原数据                     |
-| 12   | 母公司调整前报表     | 母公司报表发生变更前保留的原数据                 |
-
-### 主营业务构成
-
-主营业务构成支持三种模式：`P` 按产品、`D` 按地区、`I` 按行业。默认三种模式都会下载，也可在 `config.yaml` 的 `fina_mainbz.type` 中缩小范围。
-
-## 运行代码测试
+## 开发
 
 ```bash
 pytest
 pytest -m unit
 pytest -m integration
-# 如需覆盖率：pytest --cov=src --cov-report=term-missing
+ruff check .
+ruff format .
 ```
+
+README 中只保留上手所需内容。完整参数以 `funda <command> --help` 和 `docs/` 文档为准。

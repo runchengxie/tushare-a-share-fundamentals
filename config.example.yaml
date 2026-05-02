@@ -26,18 +26,15 @@ recent_quarters: 4
 # download 默认补缺，并执行 recent_quarters 指定的滚动刷新。
 skip_existing: false
 
-# --- fields（可选）：字段白名单 ---
+# --- 字段清单 ---
 #
-# 留空时不传 fields 参数，由 API 返回所有字段。
-# 这是推荐值，可减少字段漂移带来的维护成本。
-# 设置后只请求列出的字段，适合控制带宽和磁盘占用。
-# 格式为 TuShare 字段名，用逗号分隔。
+# 多数据集下载使用 docs/api_references/tushare/ 生成的字段清单。
+# 一般不需要在配置文件中设置全局 fields。
+# 若需更新字段，请先修改本地 API 参考资料，再运行：
+# uv run tools/update_dataset_fields.py
 #
-# Example (common income-statement fields; for illustration only):
-# fields: ts_code,ann_date,f_ann_date,end_date,report_type,comp_type,update_flag,total_revenue,revenue,total_cogs,operate_profit,total_profit,income_tax,n_income,n_income_attr_p,ebit,ebitda,rd_exp
-#
-# Default (all columns):
-fields: ""
+# 保留兼容项，默认留空。
+# fields: ""
 
 
 # --- 多数据集批量下载 ---
@@ -48,7 +45,7 @@ fields: ""
 # 1  合并报表
 # 2  单季合并报表
 # 6  母公司报表
-# 完整取值见 README。
+# 完整取值见 docs/datasets.md。
 
 datasets:
   - name: income            # 利润表
@@ -75,7 +72,8 @@ max_retries: 3
 
 # state_path 可覆盖增量状态路径。
 # 留空时默认写入 <data_dir>/_state/state.json。
-# 设置为 .db 后缀时使用 SQLite 后端。
+# download 目前使用 JSON 状态文件；后缀不会切换后端。
+# SQLite 仅用于 `funda state --backend sqlite` 的维护操作。
 # 删除状态文件或换一个 state_path 会触发重新计算下载计划。
 # state_path: null
 
@@ -102,6 +100,7 @@ export_annual_strategy: "cumulative"
 # allow_future=true 时允许请求尚未披露的未来季度。
 
 # --- TuShare token ---
-# 推荐使用 .env 或 shell 环境变量 TUSHARE_TOKEN。
+# 推荐使用 shell 环境变量 TUSHARE_TOKEN，或使用 direnv 加载 .env。
+# CLI 不会自动读取 .env 文件。
 # 只有无法使用环境变量时，才在这里填写 token。
 # token: "your_tushare_token"
